@@ -1,0 +1,13 @@
+{
+  "name": "gold-rush",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gold Rush — a fast, original arcade mining game. Static site, no build step.",
+  "scripts": {
+    "start": "npx http-server -c-1 -p 8080 .",
+    "test": "node tools/test-logic.js",
+    "simulate": "node tools/simulate.js 25 12",
+    "qa": "node tools/qa.js http://localhost:8080/",
+    "lint": "npx eslint ."
+  }
+}
