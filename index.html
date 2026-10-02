@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#120d09">
+  <meta name="description" content="Gold Rush — swing the claw, grab gold and gems, beat the clock. A fast, free arcade mining game for phone and desktop.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:title" content="Gold Rush">
+  <meta property="og:description" content="Swing the claw, grab the gold, beat the clock. Can you beat my score?">
+  <title>Gold Rush</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="styles/font.css">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <p class="rotate-hint" aria-hidden="true">Turn your phone upright for a bigger view</p>
+    <main id="stage" data-state="BOOT">
+      <canvas id="game" role="img" aria-label="Gold Rush playfield: a swinging mining claw above gold, gems and rocks"></canvas>
+
+      <div id="hud" class="hud"></div>
+
+      <!-- Full screens (rendered by src/ui/screens.js) -->
+      <section id="screen-home" class="screen screen-home" aria-label="Home"></section>
+      <section id="screen-daily" class="screen" aria-label="Daily Challenge"></section>
+      <section id="screen-shop" class="screen" aria-label="Shop"></section>
+      <section id="screen-upgrades" class="screen" aria-label="Upgrades"></section>
+      <section id="screen-achievements" class="screen" aria-label="Achievements"></section>
+      <section id="screen-leaderboard" class="screen" aria-label="Leaderboard"></section>
+      <section id="screen-settings" class="screen" aria-label="Settings"></section>
+
+      <!-- Overlays on top of the playfield (rendered by src/ui/overlays.js) -->
+      <div id="ov-pause" class="overlay"></div>
+      <div id="ov-complete" class="overlay"></div>
+      <div id="ov-gameover" class="overlay"></div>
+      <div id="ov-daily" class="overlay"></div>
+      <div id="ov-ad" class="overlay overlay-top"></div>
+      <div id="ov-confirm" class="overlay overlay-top"></div>
+
+      <div id="toasts" class="toasts" aria-live="polite"></div>
+      <div id="boot-error" class="boot-error" hidden>Something went wrong while starting the game. Please reload the page.</div>
+    </main>
+  </div>
+  <noscript><p class="noscript">Gold Rush needs JavaScript to run.</p></noscript>
+
+  <!-- Plain scripts (not ES modules) so the game also runs from file:// -->
+  <script src="src/core/util.js" defer></script>
+  <script src="src/core/rng.js" defer></script>
+  <script src="src/core/events.js" defer></script>
+  <script src="src/config.js" defer></script>
+  <script src="src/data/objects.js" defer></script>
+  <script src="src/data/upgrades.js" defer></script>
+  <script src="src/data/boosters.js" defer></script>
+  <script src="src/data/cosmetics.js" defer></script>
+  <script src="src/data/achievements.js" defer></script>
+  <script src="src/data/products.js" defer></script>
+  <script src="src/systems/save.js" defer></script>
+  <script src="src/systems/economy.js" defer></script>
+  <script src="src/systems/achievements.js" defer></script>
+  <script src="src/systems/daily.js" defer></script>
+  <script src="src/systems/leaderboard.js" defer></script>
+  <script src="src/systems/ads.js" defer></script>
+  <script src="src/systems/purchases.js" defer></script>
+  <script src="src/systems/share.js" defer></script>
+  <script src="src/audio/audio.js" defer></script>
+  <script src="src/game/levelgen.js" defer></script>
+  <script src="src/game/claw.js" defer></script>
+  <script src="src/game/session.js" defer></script>
+  <script src="src/game/autopilot.js" defer></script>
+  <script src="src/game/sprites.js" defer></script>
+  <script src="src/game/particles.js" defer></script>
+  <script src="src/game/renderer.js" defer></script>
+  <script src="src/game/fx.js" defer></script>
+  <script src="src/game/input.js" defer></script>
+  <script src="src/ui/icons.js" defer></script>
+  <script src="src/ui/dom.js" defer></script>
+  <script src="src/ui/hud.js" defer></script>
+  <script src="src/ui/screens.js" defer></script>
+  <script src="src/ui/overlays.js" defer></script>
+  <script src="src/main.js" defer></script>
+</body>
+</html>
