@@ -24,6 +24,11 @@
       this.quiet = false; // demo mode: visuals only
       this.dustTimer = 0;
       this.theme = GR.MINE_SKINS_BY_ID.classic;
+      this.mascot = null; // Nugget, set by the app
+    }
+
+    pup(type) {
+      if (this.mascot) this.mascot.react(type);
     }
 
     sound(name, opts) {
@@ -93,6 +98,8 @@
       const x = claw.x;
       const y = claw.y - 20;
       const valuable = e.value > 0 && o.kind !== 'rock';
+      if (o.kind === 'rock') this.pup('meh');
+      else if (valuable) this.pup(e.value >= 450 || o.kind === 'gem' || o.kind === 'relic' ? 'excited' : 'happy');
 
       if (o.kind === 'rock') {
         this.sound('rock');
@@ -131,6 +138,7 @@
     }
 
     onComboBreak(e) {
+      this.pup('meh');
       const claw = this.session.claw;
       this.p.text('COMBO LOST', claw.x, claw.y + 10, { size: 24, color: '#ff6b5f', vy: -30, life: 0.9 });
       this.sound('comboBreak');
@@ -138,6 +146,7 @@
     }
 
     onExplode(e) {
+      this.pup('scared');
       this.sound('explosion');
       this.p.spawn('ring', e.x, e.y, { size: e.radius, life: 0.45, color: '#ffd23f' });
       this.p.burst('smoke', e.x, e.y, 12, { speed: 90, life: 1.1, size: 22, color: '#3a3330', drag: 2, lift: 30 });
@@ -173,6 +182,7 @@
     }
 
     onBoosterStart(e) {
+      this.pup('excited');
       this.sound(e.id === 'freeze' ? 'freeze' : 'booster');
       this.p.text(BOOSTER_LABEL[e.id], 360, 700, { size: 48, color: e.def.color, vy: -30, life: 1.2 });
       if (e.id === 'freeze') {
@@ -182,6 +192,7 @@
 
     /** Big centred message (tutorial "GOOD CATCH!", etc.). */
     banner(text, color) {
+      if (text === 'GOOD CATCH!') this.pup('excited');
       this.p.text(text, 360, 480, { size: 64, color: color || '#ffd23f', vy: -25, life: 1.6 });
     }
   }

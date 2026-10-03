@@ -54,6 +54,8 @@
       this.renderer = new GR.Renderer($('#game'));
       this.particles = new GR.Particles();
       this.fx = new GR.FX(this.particles, this.audio, { vibrate: (ms) => this.vibrate(ms) });
+      this.mascot = this.renderer.mascot;
+      this.fx.mascot = this.mascot;
       this.hud = new GR.HUD($('#hud'), this);
       this.toasts = new GR.Toasts($('#toasts'));
       this.overlays = new GR.Overlays(this);
@@ -318,6 +320,7 @@
       this.hud.bind(this.session, label);
       this.tutorialActive = tutorial;
       this.hud.hint(tutorial ? this.launchHint() : null);
+      this.mascot.setMood('idle');
       this.setState('PLAYING');
       requestAnimationFrame(() => (this.particles.coinTarget = this.hud.moneyAnchor(this.renderer)));
     }
@@ -472,6 +475,7 @@
       const banners = { time: "TIME'S UP!", early: 'WELL DONE!', cleared: 'MINE CLEARED!' };
       this.fx.banner(banners[result.reason] || "TIME'S UP!", result.success ? '#ffd23f' : '#ff6b5f');
       this.audio.play(result.success ? 'levelComplete' : 'levelFail');
+      this.mascot.setMood(result.success ? 'cheer' : 'sad');
       const delay = this.particles.reduced ? 500 : 1100;
       clearTimeout(this.resultTimer);
       this.resultTimer = setTimeout(() => {
@@ -514,6 +518,7 @@
       this.ads.showRewardedAd('revive').then((res) => {
         if (res !== 'success' || this.state !== 'GAME_OVER') return;
         run.revived = true;
+        this.mascot.setMood('idle');
         this.session.revive(C.REVIVE_TIME);
         this.hud.banner('REVIVED!', '+' + C.REVIVE_TIME + ' seconds · keep digging');
         this.setState('PLAYING');
@@ -577,6 +582,7 @@
       this.demoBot = new GR.Autopilot(this.demo, { skill: 0.45, reaction: 0.15, aimNoise: 0.03, rng: new GR.RNG(Date.now()) });
       this.particles.clear();
       this.fx.attach(this.demo, { quiet: true });
+      this.mascot.setMood('idle');
       this.particles.coinTarget = { x: 508, y: C.GROUND_Y - 40 };
     }
 
