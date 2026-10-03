@@ -35,6 +35,7 @@
       this.lastClawLen = C.CLAW.restLength;
       this.cartFill = 0;
       this.time = 0;
+      this.mascot = new GR.Mascot(214, G - 5); // Nugget sits left of the rig
     }
 
     resize(cssW, cssH, dpr) {
@@ -361,6 +362,7 @@
         this.cartFill += (goal - this.cartFill) * GR.util.damp(4, dt);
 
         this.drawRig(ctx);
+        this.drawMascot(ctx, fx, dt, claw);
         this.drawObjects(ctx, session);
         if (opts.aimGuide && claw.state === 'swing') this.drawAimGuide(ctx, claw);
         this.drawBoosterFx(ctx, session);
@@ -368,6 +370,7 @@
         this.drawCable(ctx, claw);
       } else {
         this.drawRig(ctx);
+        this.drawMascot(ctx, fx, dt, null);
       }
 
       fx.draw(ctx);
@@ -378,6 +381,12 @@
         ctx.fillStyle = 'rgba(255,240,210,' + fx.flash.toFixed(3) + ')';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
+    }
+
+    drawMascot(ctx, fx, dt, claw) {
+      this.mascot.reduced = fx.reduced;
+      this.mascot.update(dt, claw);
+      this.mascot.draw(ctx);
     }
 
     drawRig(ctx) {

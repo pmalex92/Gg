@@ -3,7 +3,7 @@
  * cache-first. Bump CACHE when shipping a new version so clients update.
  * (Only active over http/https — file:// pages skip registration.)
  */
-const CACHE = 'goldrush-v1.0.0';
+const CACHE = 'goldrush-v1.1.0';
 const ASSETS = [
   './',
   'index.html',
@@ -38,6 +38,7 @@ const ASSETS = [
   'src/game/autopilot.js',
   'src/game/sprites.js',
   'src/game/particles.js',
+  'src/game/mascot.js',
   'src/game/renderer.js',
   'src/game/fx.js',
   'src/game/input.js',

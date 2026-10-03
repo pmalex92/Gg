@@ -9,6 +9,17 @@
   const fmt = GR.util.formatMoney;
   const BOOSTER_LABEL = { magnet: 'MAGNET!', frenzy: 'FRENZY!', freeze: 'TIME FREEZE!', double: 'DOUBLE VALUE!' };
   const BAG_LABEL = { time: '+8 SECONDS', strength: 'STRENGTH UP!' };
+  // Nugget's teasing lines (short: they live in a small speech bubble).
+  const TAUNTS = {
+    miss: ['HA HA!', 'MISSED!', 'SO CLOSE!', 'OOPS!'],
+    rock: ['NICE ROCK!', 'HEHE!', 'HEAVY?', 'ROCK STAR!'],
+    combo: ['BLEH!', 'COMBO GONE!'],
+    idle: ["C'MON!", 'ANY DAY NOW!', 'TICK TOCK...', 'ZZZ...'],
+    late: ['TICK TOCK!', 'HURRY UP!'],
+    wow: ['WOW!', 'SHINY!', 'NICE ONE!'],
+    tnt: ['YIKES!', 'MY EARS!'],
+  };
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
   class FX {
     /**
@@ -24,6 +35,18 @@
       this.quiet = false; // demo mode: visuals only
       this.dustTimer = 0;
       this.theme = GR.MINE_SKINS_BY_ID.classic;
+      this.mascot = null; // Nugget, set by the app
+    }
+
+    pup(type) {
+      if (this.mascot) this.mascot.react(type);
+    }
+
+    /** Nugget reacts and (sometimes) says something. Bubbles are off in the demo. */
+    tease(type, lines, chance) {
+      if (!this.mascot) return;
+      this.mascot.react(type);
+      if (!this.quiet && lines && Math.random() < (chance === undefined ? 1 : chance)) this.mascot.say(pick(lines));
     }
 
     sound(name, opts) {
@@ -41,16 +64,27 @@
       const ev = session.events;
       const on = (name, fn) => this.offs.push(ev.on(name, fn.bind(this)));
       on('launch', this.onLaunch);
+      this.idleT = 0;
+      this.lateTeased = false;
       on('grab', this.onGrab);
       on('reel', () => this.sound('reel'));
       on('deliver', this.onDeliver);
-      on('miss', () => this.sound('miss'));
+      on('miss', () => {
+        this.sound('miss');
+        this.tease(Math.random() < 0.7 ? 'laugh' : 'blep', TAUNTS.miss, 0.75);
+      });
       on('comboBreak', this.onComboBreak);
       on('explode', this.onExplode);
       on('blastPayout', this.onBlastPayout);
       on('bag', this.onBag);
       on('boosterStart', this.onBoosterStart);
-      on('tick', (n) => this.sound('tick', { last: n <= 3 }));
+      on('tick', (n) => {
+        this.sound('tick', { last: n <= 3 });
+        if (n === 10 && !this.lateTeased && !this.session.reachedTarget) {
+          this.lateTeased = true;
+          this.tease('impatient', TAUNTS.late);
+        }
+      });
       on('overtime', () => this.p.text('LAST CATCH!', 360, 330, { size: 44, color: '#ffffff', vy: -20, life: 1.4 }));
     }
 
@@ -60,6 +94,15 @@
     }
 
     update(dt) {
+      // Nugget gets impatient when the player waits too long to launch.
+      const s = this.session;
+      if (s && !this.quiet && !s.ended && s.timerStarted && !s.claw.busy) {
+        this.idleT += dt;
+        if (this.idleT > 5.5) {
+          this.idleT = -4;
+          this.tease(Math.random() < 0.65 ? 'impatient' : 'yawn', TAUNTS.idle);
+        }
+      }
       // Ambient dust motes drifting through the lantern light.
       this.dustTimer -= dt;
       if (this.dustTimer <= 0) {
@@ -72,6 +115,7 @@
     }
 
     onLaunch(claw) {
+      this.idleT = 0;
       this.sound('launch');
       this.p.burst('dust', claw.x, claw.y, 4, { speed: 60, life: 0.4, size: 3, color: this.theme.dust });
     }
@@ -93,6 +137,9 @@
       const x = claw.x;
       const y = claw.y - 20;
       const valuable = e.value > 0 && o.kind !== 'rock';
+      if (o.kind === 'rock') this.tease('laugh', TAUNTS.rock, 0.7);
+      else if (valuable && (e.value >= 450 || o.kind === 'gem' || o.kind === 'relic')) this.tease('excited', TAUNTS.wow, 0.4);
+      else if (valuable) this.pup('happy');
 
       if (o.kind === 'rock') {
         this.sound('rock');
@@ -131,6 +178,7 @@
     }
 
     onComboBreak(e) {
+      this.tease('blep', TAUNTS.combo, 0.8);
       const claw = this.session.claw;
       this.p.text('COMBO LOST', claw.x, claw.y + 10, { size: 24, color: '#ff6b5f', vy: -30, life: 0.9 });
       this.sound('comboBreak');
@@ -138,6 +186,7 @@
     }
 
     onExplode(e) {
+      this.tease('scared', TAUNTS.tnt, 0.6);
       this.sound('explosion');
       this.p.spawn('ring', e.x, e.y, { size: e.radius, life: 0.45, color: '#ffd23f' });
       this.p.burst('smoke', e.x, e.y, 12, { speed: 90, life: 1.1, size: 22, color: '#3a3330', drag: 2, lift: 30 });
@@ -173,6 +222,7 @@
     }
 
     onBoosterStart(e) {
+      this.pup('excited');
       this.sound(e.id === 'freeze' ? 'freeze' : 'booster');
       this.p.text(BOOSTER_LABEL[e.id], 360, 700, { size: 48, color: e.def.color, vy: -30, life: 1.2 });
       if (e.id === 'freeze') {
@@ -182,6 +232,7 @@
 
     /** Big centred message (tutorial "GOOD CATCH!", etc.). */
     banner(text, color) {
+      if (text === 'GOOD CATCH!') this.pup('excited');
       this.p.text(text, 360, 480, { size: 64, color: color || '#ffd23f', vy: -25, life: 1.6 });
     }
   }
