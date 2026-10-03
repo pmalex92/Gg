@@ -20,6 +20,47 @@
     tnt: ['YIKES!', 'MY EARS!'],
   };
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  /** Per-world ambient particles: how often, and how one is spawned. */
+  const AMBIENT = {
+    dust: {
+      every: 0.35,
+      spawn: (p, theme) => p.spawn('dust', rnd(0, 720), rnd(300, 1150), {
+        vx: rnd(-6, 6), vy: rnd(-14, -6), life: 4, size: rnd(1.6, 3.2), color: theme.dust,
+      }),
+    },
+    snow: {
+      every: 0.12,
+      spawn: (p) => p.spawn('dust', rnd(-20, 740), rnd(-120, 900), {
+        vx: rnd(-14, 6), vy: rnd(28, 48), life: 6, size: rnd(1.6, 3.4), color: '#f2fbff',
+      }),
+    },
+    embers: {
+      every: 0.18,
+      spawn: (p) => p.spawn('dust', rnd(0, 720), rnd(700, 1180), {
+        vx: rnd(-10, 10), vy: rnd(-60, -30), life: 3.5, size: rnd(1.4, 3), color: Math.random() < 0.5 ? '#ff8a2a' : '#ffd23f',
+      }),
+    },
+    fireflies: {
+      every: 0.45,
+      spawn: (p) => p.spawn('spark', rnd(20, 700), rnd(80, 1000), {
+        vx: rnd(-18, 18), vy: rnd(-12, 12), life: 3, size: rnd(4, 6), color: '#d8ff7a', drag: 0.2,
+      }),
+    },
+    sand: {
+      every: 0.14,
+      spawn: (p) => p.spawn('dust', -10, rnd(120, 1150), {
+        vx: rnd(60, 110), vy: rnd(-6, 8), life: 8, size: rnd(1.2, 2.4), color: '#f0c98a',
+      }),
+    },
+    stars: {
+      every: 0.3,
+      spawn: (p) => p.spawn('spark', rnd(0, 720), rnd(-100, 1150), {
+        vx: 0, vy: 0, life: 1.6, size: rnd(3, 6), color: Math.random() < 0.5 ? '#ffffff' : '#d7b8ff',
+      }),
+    },
+  };
 
   class FX {
     /**
@@ -36,6 +77,7 @@
       this.dustTimer = 0;
       this.theme = GR.MINE_SKINS_BY_ID.classic;
       this.mascot = null; // Nugget, set by the app
+      this.ambient = 'dust';
     }
 
     pup(type) {
@@ -114,14 +156,12 @@
           this.tease(Math.random() < 0.65 ? 'impatient' : 'yawn', TAUNTS.idle);
         }
       }
-      // Ambient dust motes drifting through the lantern light.
+      // Ambient particles that give each world its mood.
       this.dustTimer -= dt;
       if (this.dustTimer <= 0) {
-        this.dustTimer = this.p.reduced ? 1.2 : 0.35;
-        this.p.spawn('dust', Math.random() * 720, 300 + Math.random() * 850, {
-          vx: (Math.random() - 0.5) * 12, vy: -6 - Math.random() * 8, life: 4, size: 1.6 + Math.random() * 1.6,
-          color: this.theme.dust,
-        });
+        const a = AMBIENT[this.ambient] || AMBIENT.dust;
+        this.dustTimer = a.every * (this.p.reduced ? 3 : 1);
+        a.spawn(this.p, this.theme);
       }
     }
 

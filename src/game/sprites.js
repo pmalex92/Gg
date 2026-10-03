@@ -458,6 +458,268 @@
     }
   }
 
+  /** A gem held above a critter (shared by every species). */
+  function heldGem(ctx, o, x, y) {
+    if (!o.gem) return;
+    ctx.save();
+    ctx.translate(x, y);
+    diamond(ctx, o.r * 0.42);
+    ctx.restore();
+  }
+
+  function outlined(ctx, fill, width) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+
+  /** Frozen Caves: a waddling penguin. */
+  function penguin(ctx, o, t) {
+    const r = o.r;
+    const dir = o.vx >= 0 ? 1 : -1;
+    const walk = (o.held ? t * 20 : t * 9) + o.uid;
+    shadow(ctx, r, r * 0.9, 0.3);
+    ctx.save();
+    ctx.rotate(Math.sin(walk) * 0.12);
+    ctx.strokeStyle = '#0d1018';
+    const lw = Math.max(1.6, r * 0.08);
+    // feet
+    [-1, 1].forEach((side) => {
+      ctx.beginPath();
+      ctx.ellipse(side * r * 0.3, r * (0.88 - (Math.sin(walk) * side > 0 ? 0.06 : 0)), r * 0.24, r * 0.1, 0, 0, TAU);
+      outlined(ctx, '#ff9f2a', lw * 0.8);
+    });
+    // body + white belly
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.05, r * 0.68, r * 0.88, 0, 0, TAU);
+    outlined(ctx, '#232a3a', lw);
+    ctx.beginPath();
+    ctx.ellipse(dir * r * 0.06, r * 0.18, r * 0.44, r * 0.66, 0, 0, TAU);
+    ctx.fillStyle = '#f4f7fb';
+    ctx.fill();
+    // flippers
+    [-1, 1].forEach((side) => {
+      ctx.save();
+      ctx.translate(side * r * 0.62, r * 0.05);
+      ctx.rotate(side * (0.35 + Math.sin(walk * 2) * 0.2));
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.22, r * 0.12, r * 0.34, 0, 0, TAU);
+      outlined(ctx, '#232a3a', lw * 0.8);
+      ctx.restore();
+    });
+    // eyes + beak
+    [-1, 1].forEach((side) => {
+      circle(ctx, dir * r * 0.06 + side * r * 0.2, -r * 0.42, r * 0.11, '#ffffff');
+      circle(ctx, dir * r * 0.1 + side * r * 0.2, -r * 0.42, r * 0.055, '#111111');
+    });
+    ctx.beginPath();
+    ctx.moveTo(dir * r * 0.0, -r * 0.3);
+    ctx.lineTo(dir * r * 0.32, -r * 0.24);
+    ctx.lineTo(dir * r * 0.0, -r * 0.16);
+    ctx.closePath();
+    outlined(ctx, '#ff9f2a', lw * 0.6);
+    ctx.restore();
+    heldGem(ctx, o, dir * r * 0.75, -r * 0.95);
+  }
+
+  /** Lava Depths: a spotted fire salamander. */
+  function salamander(ctx, o, t) {
+    const r = o.r;
+    const dir = o.vx >= 0 ? 1 : -1;
+    const walk = (o.held ? t * 22 : t * 12) + o.uid;
+    shadow(ctx, r, r * 0.5, 0.3);
+    ctx.save();
+    ctx.scale(dir, 1);
+    ctx.strokeStyle = '#4a0f05';
+    const lw = Math.max(1.6, r * 0.08);
+    // tail
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, r * 0.05);
+    ctx.quadraticCurveTo(-r * 1.15, -r * 0.05 + Math.sin(walk) * r * 0.15, -r * 1.3, r * 0.3);
+    ctx.lineWidth = r * 0.26;
+    ctx.strokeStyle = '#4a0f05';
+    ctx.stroke();
+    ctx.lineWidth = r * 0.17;
+    ctx.strokeStyle = '#ff6a2a';
+    ctx.stroke();
+    ctx.strokeStyle = '#4a0f05';
+    // legs
+    [[-0.35, 1], [0.35, -1]].forEach(([x, ph]) => {
+      [-1, 1].forEach((k) => {
+        const swing = Math.sin(walk + ph * k) * r * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(x * r, r * 0.1);
+        ctx.lineTo(x * r + swing, r * 0.42);
+        ctx.lineWidth = lw * 1.4;
+        ctx.stroke();
+      });
+    });
+    // body + head
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.75, r * 0.36, 0, 0, TAU);
+    outlined(ctx, '#ff6a2a', lw);
+    ctx.beginPath();
+    ctx.ellipse(r * 0.78, -r * 0.08, r * 0.34, r * 0.28, 0, 0, TAU);
+    outlined(ctx, '#ff6a2a', lw);
+    // yellow spots
+    [[-0.4, -0.08], [-0.05, 0.08], [0.3, -0.12], [0.8, -0.2]].forEach(([x, y]) => circle(ctx, x * r, y * r, r * 0.09, '#ffd23f'));
+    circle(ctx, r * 0.9, -r * 0.2, r * 0.08, '#111111');
+    circle(ctx, r * 0.92, -r * 0.23, r * 0.03, '#ffffff');
+    ctx.restore();
+    heldGem(ctx, o, dir * r * 0.75, -r * 0.65);
+  }
+
+  /** Jungle Ruins: a hopping treasure frog. */
+  function frog(ctx, o, t) {
+    const r = o.r;
+    const dir = o.vx >= 0 ? 1 : -1;
+    const hop = Math.abs(Math.sin((o.held ? t * 8 : t * 4.5) + o.uid)) * r * 0.35;
+    shadow(ctx, r, r * 0.6, 0.3 - hop / r * 0.2);
+    ctx.save();
+    ctx.translate(0, -hop);
+    ctx.strokeStyle = '#1b3d12';
+    const lw = Math.max(1.6, r * 0.08);
+    // back legs
+    [-1, 1].forEach((side) => {
+      ctx.beginPath();
+      ctx.ellipse(side * r * 0.62, r * 0.32, r * 0.32, r * 0.2, side * 0.3, 0, TAU);
+      outlined(ctx, '#4fae3e', lw);
+    });
+    // body
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.1, r * 0.8, r * 0.55, 0, 0, TAU);
+    outlined(ctx, '#5fbf4a', lw);
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.3, r * 0.5, r * 0.28, 0, 0, TAU);
+    ctx.fillStyle = '#d9f0b0';
+    ctx.fill();
+    // eyes on top
+    [-1, 1].forEach((side) => {
+      ctx.beginPath();
+      ctx.arc(side * r * 0.36, -r * 0.38, r * 0.24, 0, TAU);
+      outlined(ctx, '#5fbf4a', lw);
+      circle(ctx, side * r * 0.36, -r * 0.4, r * 0.15, '#ffffff');
+      circle(ctx, side * r * 0.36 + dir * r * 0.05, -r * 0.4, r * 0.08, '#111111');
+    });
+    // smile
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.02, r * 0.32, 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.lineWidth = lw * 0.8;
+    ctx.stroke();
+    ctx.restore();
+    heldGem(ctx, o, dir * r * 0.8, -r * 0.9 - hop);
+  }
+
+  /** Desert Tomb: a scuttling scorpion. */
+  function scorpion(ctx, o, t) {
+    const r = o.r;
+    const dir = o.vx >= 0 ? 1 : -1;
+    const walk = (o.held ? t * 22 : t * 13) + o.uid;
+    shadow(ctx, r, r * 0.5, 0.3);
+    ctx.save();
+    ctx.scale(dir, 1);
+    ctx.strokeStyle = '#3a1d0a';
+    ctx.lineCap = 'round';
+    const lw = Math.max(1.6, r * 0.08);
+    // legs
+    for (let i = 0; i < 3; i++) {
+      [-1, 1].forEach((side) => {
+        const ph = Math.sin(walk + i * 1.6 + (side > 0 ? 0 : Math.PI)) * r * 0.08;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.2 + i * r * 0.22, r * 0.1);
+        ctx.lineTo(-r * 0.3 + i * r * 0.22 + ph, r * 0.42);
+        ctx.lineWidth = lw;
+        ctx.stroke();
+      });
+    }
+    // tail arcing over the back with a stinger
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.5, 0);
+    ctx.quadraticCurveTo(-r * 1.15, -r * 0.4, -r * 0.65, -r * 0.95);
+    ctx.lineWidth = r * 0.24;
+    ctx.stroke();
+    ctx.lineWidth = r * 0.15;
+    ctx.strokeStyle = '#c9782f';
+    ctx.stroke();
+    ctx.strokeStyle = '#3a1d0a';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.7, -r * 0.98);
+    ctx.lineTo(-r * 0.42, -r * 0.9);
+    ctx.lineTo(-r * 0.6, -r * 0.78);
+    ctx.closePath();
+    outlined(ctx, '#7a3a14', lw * 0.7);
+    // body
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.62, r * 0.32, 0, 0, TAU);
+    outlined(ctx, '#c9782f', lw);
+    // claws
+    const snap = Math.abs(Math.sin(walk * 0.5)) * 0.4;
+    ctx.beginPath();
+    ctx.moveTo(r * 0.5, 0);
+    ctx.lineTo(r * 0.85, -r * 0.18);
+    ctx.lineWidth = lw * 1.4;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(r * 0.95, -r * 0.2);
+    ctx.arc(r * 0.95, -r * 0.2, r * 0.2, 0.3 + snap, TAU - 0.3 - snap);
+    ctx.closePath();
+    outlined(ctx, '#c9782f', lw);
+    circle(ctx, r * 0.3, -r * 0.12, r * 0.06, '#111111');
+    ctx.restore();
+    heldGem(ctx, o, dir * r * 0.4, -r * 0.75);
+  }
+
+  /** Cosmic Rift: a floating one-eyed space blob. */
+  function alien(ctx, o, t) {
+    const r = o.r;
+    const dir = o.vx >= 0 ? 1 : -1;
+    const bob = Math.sin(t * 3 + o.uid) * r * 0.12;
+    shadow(ctx, r, r * 0.75, 0.22);
+    ctx.save();
+    ctx.translate(0, bob - r * 0.1);
+    ctx.strokeStyle = '#1d3a4a';
+    const lw = Math.max(1.6, r * 0.08);
+    // antennae
+    [-1, 1].forEach((side) => {
+      ctx.beginPath();
+      ctx.moveTo(side * r * 0.25, -r * 0.55);
+      ctx.quadraticCurveTo(side * r * 0.45, -r * 0.95, side * r * 0.3, -r * 1.05);
+      ctx.lineWidth = lw;
+      ctx.stroke();
+      circle(ctx, side * r * 0.3, -r * 1.07, r * 0.11, Math.sin(t * 6 + side) > 0 ? '#ffe08a' : '#ff9fd0');
+    });
+    // wobbly blob body
+    ctx.beginPath();
+    for (let i = 0; i <= 16; i++) {
+      const a = (i / 16) * TAU;
+      const wob = 1 + Math.sin(a * 3 + t * 4) * 0.05;
+      const x = Math.cos(a) * r * 0.8 * wob;
+      const y = Math.sin(a) * r * 0.65 * wob * (Math.sin(a) > 0 ? 0.85 : 1);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    outlined(ctx, '#6fe0c8', lw);
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.25, -r * 0.25, r * 0.22, r * 0.12, -0.4, 0, TAU);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fill();
+    // one big eye looking where it goes
+    circle(ctx, 0, -r * 0.05, r * 0.3, '#ffffff');
+    circle(ctx, dir * r * 0.1, -r * 0.05, r * 0.15, '#2a1450');
+    circle(ctx, dir * r * 0.05, -r * 0.1, r * 0.05, '#ffffff');
+    ctx.restore();
+    heldGem(ctx, o, dir * r * 0.8, -r * 0.8 + bob);
+  }
+
+  const CRITTERS = { crab, penguin, salamander, frog, scorpion, alien };
+
+  /** Draw a moving critter in the style of its world. */
+  function critter(ctx, o, t) {
+    (CRITTERS[o.species] || crab)(ctx, o, t);
+  }
+
   // ---- Claw ------------------------------------------------------------------
 
   /** Claw pointing down (+y) from its hub at (0,0). grip: 0 open .. 1 closed. */
@@ -575,7 +837,8 @@
       return spr;
     },
 
-    painters: { nugget, bar, diamond, ruby, rock, bag, tnt, relic, crab, star },
+    painters: { nugget, bar, diamond, ruby, rock, bag, tnt, relic, crab, penguin, salamander, frog, scorpion, alien, star },
+    critter,
     drawClaw,
     circle,
     star,

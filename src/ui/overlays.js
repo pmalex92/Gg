@@ -125,7 +125,7 @@
       this.pause.innerHTML =
         '<div class="panel" role="dialog" aria-modal="true" aria-labelledby="pause-title">' +
         '<h2 id="pause-title">PAUSED</h2>' +
-        '<p class="sub">' + (run && run.mode === 'daily' ? 'Daily Challenge' : 'Level ' + (run ? run.level : 1)) + '</p>' +
+        '<p class="sub">' + (!run ? '' : run.mode === 'daily' ? 'Daily Challenge' : run.mode === 'training' ? 'Training' : 'Level ' + run.level + ' · ' + GR.Worlds.forLevel(run.level).name) + '</p>' +
         perkList(run) +
         '<button class="btn btn-primary big" data-action="resume">' + icon('play') + 'RESUME</button>' +
         '<button class="btn btn-secondary" data-action="restart">' + icon('restart') + 'RESTART LEVEL</button>' +
@@ -152,7 +152,8 @@
         '</div>' +
         '<ul class="breakdown">' + lines + (r.coinMult > 1 ? '<li><span>Coin Multiplier</span><b>×' + r.coinMult.toFixed(2).replace(/0$/, '') + '</b></li>' : '') + '</ul>' +
         goalsBlock(r.goals) +
-        '<button class="btn btn-reward" data-action="double"' + (r.canDouble ? '' : ' disabled') + '>' + icon('tv') + 'DOUBLE YOUR COINS <small>+' + num(r.coins) + '</small></button>' +
+        '<button class="btn btn-reward" data-action="double"' + (r.canDouble ? '' : ' disabled') + '>' +
+        (r.doubled ? icon('check') + 'COINS DOUBLED' : icon('tv') + 'DOUBLE YOUR COINS') + ' <small>+' + num(r.coins) + '</small></button>' +
         '<button class="btn btn-primary big" data-action="next" data-autofocus>NEXT LEVEL ' + icon('play') + '</button>' +
         '<div class="row2">' +
         '<button class="btn btn-secondary" data-action="upgrades">' + icon('upgrade') + 'UPGRADES' + (r.affordable ? '<em class="badge">' + r.affordable + '</em>' : '') + '</button>' +

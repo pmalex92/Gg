@@ -16,6 +16,9 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
+const GR_WORLD_THEMES = ['w-gold-hills', 'w-frozen', 'w-lava', 'w-jungle', 'w-desert', 'w-cosmic'];
+const GR_WORLD_NAMES = ['GOLD HILLS', 'FROZEN CAVES', 'LAVA DEPTHS', 'JUNGLE RUINS', 'DESERT TOMB', 'COSMIC RIFT'];
+const GR_WORLD_CRITTERS = ['crab', 'penguin', 'salamander', 'frog', 'scorpion', 'alien'];
 const BASE = process.argv[2] || 'http://localhost:8080/';
 const OUT = process.argv[3] || path.join(__dirname, '..', 'qa-shots');
 fs.mkdirSync(OUT, { recursive: true });
@@ -97,6 +100,15 @@ async function main() {
   });
   check('Heavy objects retract slower', speeds.heavy < speeds.light * 0.5, Math.round(speeds.light) + ' vs ' + Math.round(speeds.heavy) + ' px/s');
 
+  check('First game is the training level with the aim line', await page.evaluate(() => GR.app.run.mode === 'training' && GR.app.aimGuide === true));
+  const tr = await fastForward(page, 70, true);
+  check('Training target is easy to reach', tr.money >= tr.target, '$' + tr.money + ' / $' + tr.target);
+  await page.waitForFunction(() => GR.app.run && GR.app.run.mode === 'campaign', null, { timeout: 5000 }).catch(() => {});
+  const l1 = await page.evaluate(() => ({ lvl: GR.app.run.level, guide: GR.app.aimGuide, banner: document.querySelector('#hud-banner b').textContent, grad: GR.app.save.data.tutorial.graduated }));
+  check('Training leads into Level 1 with "YOU GOT THE GIST!" and no aim line', l1.lvl === 1 && !l1.guide && l1.banner === 'YOU GOT THE GIST!' && l1.grad, JSON.stringify(l1));
+  await page.waitForTimeout(400);
+  await shot(page, '02b-got-the-gist');
+
   const ff = await fastForward(page, 70, true);
   check('Bot can complete level 1', ff.money >= ff.target, '$' + ff.money + ' / $' + ff.target);
   check('Level complete screen appears', (await waitState(page, 'LEVEL_COMPLETE')) === 'LEVEL_COMPLETE');
@@ -123,7 +135,7 @@ async function main() {
   await page.click('#ov-perk .perk-card');
   check('Next level starts with the chosen perk', (await waitState(page, 'PLAYING')) === 'PLAYING' && (await page.evaluate((id) => GR.app.run.level === 2 && GR.app.run.perks.indexOf(id) >= 0 && document.querySelectorAll('#hud-perks span').length === 1, picked)), picked);
 
-  check('Aim line still helps on level 2', await page.evaluate(() => GR.app.aimGuide === true));
+  check('No aim line on level 2', await page.evaluate(() => GR.app.aimGuide === false));
 
   // Pause
   await page.keyboard.press('Escape');
@@ -284,6 +296,7 @@ async function main() {
     await pg.evaluate(() => {
       const d = GR.app.save.data;
       d.tutorial.done = true;
+      d.tutorial.graduated = true;
       d.stats.bestLevel = 12;
       GR.app.goHome();
     });
@@ -326,27 +339,54 @@ async function main() {
   {
     const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const pg = await c.newPage();
-    watch(pg, 'graduation');
+    watch(pg, 'worlds');
     await pg.goto(BASE);
-    const grad = await pg.evaluate(() => {
+    const worlds = [];
+    for (const lvl of [1, 11, 21, 31, 41, 51]) {
+      const w = await pg.evaluate((lvl) => {
+        const app = GR.app;
+        app.save.data.tutorial.done = true;
+        app.save.data.tutorial.graduated = true;
+        app.startCampaign(lvl);
+        const crit = app.session.objects.find((o) => o.kind === 'critter');
+        return {
+          lvl,
+          world: GR.Worlds.forLevel(lvl).id,
+          banner: document.querySelector('#hud-banner b').textContent,
+          scene: app.renderer.theme.id,
+          species: crit ? crit.species : null,
+        };
+      }, lvl);
+      worlds.push(w);
+      await pg.waitForTimeout(900);
+      await pg.screenshot({ path: path.join(OUT, '21-world-' + lvl + '.png') });
+    }
+    const okWorlds = worlds.every((w, i) => w.scene === GR_WORLD_THEMES[i] && (w.lvl === 1 || w.banner === GR_WORLD_NAMES[i]) && (w.lvl === 1 || w.species === GR_WORLD_CRITTERS[i]));
+    check('Every 10 levels the scenery and critters change (6 worlds)', okWorlds, worlds.map((w) => w.lvl + ':' + w.scene + '/' + w.species).join(' '));
+    const fromUpg = await pg.evaluate(() => {
       const app = GR.app;
-      app.save.data.tutorial.done = true;
-      app.save.data.tutorial.graduated = false;
-      app.startCampaign(3);
-      return {
-        banner: document.querySelector('#hud-banner b').textContent,
-        guide: app.aimGuide,
-        graduated: app.save.data.tutorial.graduated,
-      };
+      app.startCampaign(1);
+      const s = app.session;
+      const ap = new GR.Autopilot(s, { skill: 0.55, reaction: 0.1, aimNoise: 0.005 });
+      for (let i = 0; i < 70 * 60 && !s.ended; i++) { ap.update(1 / 60); s.update(1 / 60); }
+      return s.result.success;
     });
-    check('Reaching level 3 shows "YOU GOT THE GIST!" and drops the aim line', grad.banner === 'YOU GOT THE GIST!' && !grad.guide && grad.graduated, JSON.stringify(grad));
-    await pg.waitForTimeout(500);
-    await pg.screenshot({ path: path.join(OUT, '20-graduation.png') });
-    const again = await pg.evaluate(() => {
-      GR.app.startCampaign(1);
-      return { guide: GR.app.aimGuide, banner: document.querySelector('#hud-banner b').textContent };
-    });
-    check('After graduating, level 1 has no aim line', !again.guide && again.banner === 'LEVEL 1', JSON.stringify(again));
+    if (fromUpg) {
+      await waitState(pg, 'LEVEL_COMPLETE', 6000);
+      await pg.evaluate(() => GR.app.economy.addCoins(400, 'qa'));
+      await pg.waitForTimeout(700);
+      await pg.click('#ov-complete [data-action="upgrades"]');
+      await pg.evaluate(() => {
+        // buy everything affordable
+        for (let k = 0; k < 30; k++) GR.UPGRADES.forEach((u) => GR.app.economy.buyUpgrade(u.id));
+      });
+      await pg.click('#screen-upgrades [data-action="back"]');
+      await pg.waitForTimeout(200);
+      const badge = await pg.evaluate(() => ({ shown: (document.querySelector('#ov-complete [data-action="upgrades"] .badge') || {}).textContent || '', want: GR.app.economy.affordableUpgrades() }));
+      check('Upgrade badge updates after buying upgrades', String(badge.want || '') === badge.shown, JSON.stringify(badge));
+    } else {
+      check('Upgrade badge updates after buying upgrades', false, 'bot did not finish level 1');
+    }
     await c.close();
   }
   {
@@ -371,6 +411,7 @@ async function main() {
     await pg.goto(BASE);
     await pg.evaluate(() => {
       GR.app.save.data.tutorial.done = true;
+      GR.app.save.data.tutorial.graduated = true;
       GR.app.goHome();
     });
     await pg.waitForTimeout(700);

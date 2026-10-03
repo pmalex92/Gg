@@ -599,7 +599,7 @@
           app.save.data.tutorial.done = false;
           app.save.data.tutorial.graduated = false;
           app.save.save();
-          app.toasts.show('TIPS RESET', 'Hints and the aim line return for levels 1-2.', 'check');
+          app.toasts.show('TIPS RESET', 'The training level runs before your next game.', 'check');
         },
         reset: () => {
           app.confirm('RESET ALL PROGRESS?', 'Coins, upgrades, skins, achievements and streaks will be erased. This cannot be undone.', 'ERASE').then((ok) => {

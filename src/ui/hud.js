@@ -62,11 +62,12 @@
       this.displayMoney = session.money;
       this.cache = {};
       const daily = session.mode === 'daily';
-      this.el.mode.textContent = daily ? 'DAILY' : 'LEVEL';
-      this.el.level.textContent = daily ? GR.util.prettyDate(GR.util.dateKey()) : String(session.level.level);
+      const training = session.mode === 'training';
+      this.el.mode.textContent = daily ? 'DAILY' : training ? 'TRAINING' : 'LEVEL';
+      this.el.level.textContent = daily ? GR.util.prettyDate(GR.util.dateKey()) : training ? 'GO!' : String(session.level.level);
       this.el.goal.textContent = 'of ' + fmt(session.target);
       this.el.boosters.hidden = !session.boostersAllowed;
-      this.el.note.hidden = session.boostersAllowed;
+      this.el.note.hidden = !daily;
       this.el.combo.classList.remove('on');
       this.el.perks.innerHTML = (perks || [])
         .map((id) => {

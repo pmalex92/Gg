@@ -221,7 +221,21 @@
       else this.stateStack = ['MENU'];
       const top = this.stateStack[this.stateStack.length - 1];
       if (top === 'MENU' && !this.demo) this.startDemo();
+      if ((top === 'LEVEL_COMPLETE' || top === 'GAME_OVER') && this.lastResult) this.refreshResult(top);
       this.enter(top);
+    }
+
+    /** Coming back from Upgrades: redraw the result panel with fresh numbers. */
+    refreshResult(view) {
+      const data = this.lastResult;
+      const run = this.run;
+      data.affordable = this.economy.affordableUpgrades();
+      data.goals = this.nextGoals();
+      data.doubled = !!run && run.doubled;
+      data.canDouble = !!run && !run.doubled && this.ads.isRewardedAdAvailable();
+      data.canRevive = !!run && !run.revived && this.ads.isRewardedAdAvailable();
+      if (view === 'LEVEL_COMPLETE') this.overlays.renderComplete(data);
+      else this.overlays.renderGameOver(data);
     }
 
     enter(s) {
@@ -277,7 +291,12 @@
       return Math.floor(Math.random() * 1e9).toString(36);
     }
 
-    startCampaign(startLevel) {
+    /**
+     * Start a campaign run. Brand-new players (or anyone who asked for the
+     * hints again) first get the one-off training level.
+     */
+    startCampaign(startLevel, opts) {
+      if (!this.save.data.tutorial.graduated) return this.startTraining(startLevel || 1);
       this.demo = null;
       this.run = {
         mode: 'campaign',
@@ -289,7 +308,15 @@
         revived: false,
         bestAtStart: this.save.data.stats.bestRun,
         perks: [],
+        graduating: !!(opts && opts.graduating),
       };
+      this.startLevel();
+    }
+
+    /** Practice level with the aim line; afterwards the real run begins. */
+    startTraining(nextLevel) {
+      this.demo = null;
+      this.run = { mode: 'training', level: 0, nextLevel, score: 0, coins: 0, revived: true, perks: [] };
       this.startLevel();
     }
 
@@ -303,17 +330,19 @@
     startLevel() {
       const run = this.run;
       const daily = run.mode === 'daily';
-      const level = daily ? GR.LevelGen.daily(run.date) : GR.LevelGen.campaign(run.level, run.seed);
-      const tutorial = !daily && !this.save.data.tutorial.done;
+      const training = run.mode === 'training';
+      const campaign = run.mode === 'campaign';
+      const level = daily ? GR.LevelGen.daily(run.date) : training ? GR.LevelGen.training() : GR.LevelGen.campaign(run.level, run.seed);
+      const world = campaign ? GR.Worlds.forLevel(run.level) : GR.WORLDS[0];
       const events = new GR.EventBus();
       // Perks only exist in campaign runs; the Daily stays equal for everyone.
-      run.mods = GR.Perks.modifiers(daily ? [] : run.perks);
+      run.mods = GR.Perks.modifiers(campaign ? run.perks : []);
       this.session = new GR.GameSession({
         level,
         events,
-        tutorial,
+        tutorial: training, // timer waits for the first launch
         stats: daily ? GR.Economy.baseClawStats() : GR.Perks.applyToStats(this.economy.clawStats(), run.mods),
-        boostersAllowed: !daily,
+        boostersAllowed: campaign,
         mods: run.mods,
       });
       run.convertedMoney = 0;
@@ -322,41 +351,74 @@
       run.doubled = false;
       run.lastCoins = 0;
 
+      // Scenery: campaign levels follow the world (changes every 10 levels);
+      // the Daily keeps the player's equipped mine skin.
+      this.applyScene(daily ? null : world);
       this.particles.clear();
       this.fx.attach(this.session);
       this.bindSessionEvents(events);
 
-      // Guided start: the aim line helps on levels 1-2 until the player
-      // reaches level 3 once, which "graduates" them with a short message.
-      const tut = this.save.data.tutorial;
       const goal = '<b>' + GR.util.formatMoney(level.target) + '</b>';
-      let graduating = false;
-      if (!daily && !tut.graduated && run.level >= 3) {
-        tut.graduated = true;
-        graduating = true;
-        this.save.save();
-      }
-      this.aimGuide = !daily && !tut.graduated && run.level <= 2;
-
       let label;
       if (daily) {
         const mod = this.daily.modifierFor(run.date);
         label = { title: 'DAILY CHALLENGE', sub: mod.name + ' · reach ' + goal };
-      } else if (graduating) {
+      } else if (training) {
+        label = { title: 'TRAINING', sub: 'Practice the claw · reach ' + goal, long: true };
+      } else if (run.graduating) {
+        run.graduating = false;
         label = { title: 'YOU GOT THE GIST!', sub: 'Now test your skills · reach ' + goal, long: true };
+      } else if (GR.Worlds.isWorldStart(run.level) && run.level > 1) {
+        label = {
+          title: world.name.toUpperCase(),
+          sub: 'World ' + (GR.Worlds.index(run.level) + 1) + ' · ' + world.intro + ' · reach ' + goal,
+          long: true,
+        };
       } else {
         label = { title: 'LEVEL ' + run.level, sub: 'Reach ' + goal };
       }
-      this.hud.bind(this.session, label, daily ? [] : run.perks);
-      this.tutorialActive = tutorial;
-      this.hud.hint(tutorial ? this.launchHint() : null);
+      this.aimGuide = training;
+      this.hud.bind(this.session, label, campaign ? run.perks : []);
+      this.tutorialActive = training;
+      this.hud.hint(training ? this.launchHint() : null);
       this.mascot.setMood('idle');
-      if (graduating) {
+      if (label.title === 'YOU GOT THE GIST!') {
         this.mascot.react('excited');
         this.mascot.say('NO MORE HELP!', true);
+      } else if (label.long && !training) {
+        this.mascot.react('excited');
+        this.mascot.say('NEW PLACE!', true);
       }
       this.setState('PLAYING');
       requestAnimationFrame(() => (this.particles.coinTarget = this.hud.moneyAnchor(this.renderer)));
+    }
+
+    /** Training finished: bank its coins, then straight into Level 1. */
+    finishTraining(result) {
+      const tut = this.save.data.tutorial;
+      tut.done = true;
+      tut.graduated = true;
+      const coins = Math.round(Math.floor(result.money * GR.CONFIG.ECONOMY.moneyToCoins) * this.economy.clawStats().coinMult);
+      this.economy.addCoins(coins, 'training');
+      this.save.flush();
+      this.hud.hint(null);
+      this.tutorialActive = false;
+      this.fx.banner('TRAINING DONE!', '#ffd23f');
+      this.audio.play('levelComplete');
+      this.mascot.setMood('cheer');
+      const next = this.run.nextLevel || 1;
+      clearTimeout(this.resultTimer);
+      this.resultTimer = setTimeout(() => {
+        if (this.state === 'PLAYING' && this.run && this.run.mode === 'training') this.startCampaign(next, { graduating: true });
+      }, this.particles.reduced ? 700 : 1500);
+    }
+
+    /** Scenery for the current context (a world, or the equipped mine skin). */
+    applyScene(world) {
+      const theme = world ? world.theme : GR.MINE_SKINS_BY_ID[this.save.data.cosmetics.equippedSkin] || GR.MINE_SKINS_BY_ID.classic;
+      this.renderer.setScene(theme);
+      this.fx.theme = theme;
+      this.fx.ambient = theme.ambient || 'dust';
     }
 
     launchHint() {
@@ -405,6 +467,7 @@
     }
 
     onSessionEnd(result) {
+      if (this.run.mode === 'training') return this.finishTraining(result);
       const run = this.run;
       const d = this.save.data;
       const st = d.stats;
@@ -651,6 +714,7 @@
       this.run = null;
       this.fx.detach();
       this.particles.clear();
+      this.applyScene(null);
       this.startDemo();
       this.setState('MENU');
     }
@@ -689,9 +753,8 @@
 
     applyCosmetics() {
       const c = this.save.data.cosmetics;
-      this.renderer.setTheme(c.equippedSkin);
       this.renderer.setClawSkin(c.equippedClaw);
-      this.fx.theme = GR.MINE_SKINS_BY_ID[c.equippedSkin] || GR.MINE_SKINS_BY_ID.classic;
+      if (!this.session || !this.run || this.run.mode === 'daily') this.applyScene(null);
       document.documentElement.style.setProperty('--theme-accent', this.fx.theme.accent);
     }
 
