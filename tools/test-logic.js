@@ -70,7 +70,7 @@ function systems(storage) {
 console.log('\n[save]');
 test('fresh save has version + defaults', () => {
   const { save } = systems();
-  eq(save.data.saveVersion, 1);
+  eq(save.data.saveVersion, 2);
   eq(save.data.wallet.coins, 0);
   ok(save.isNew);
 });
@@ -84,6 +84,13 @@ test('partial/old save is merged with new defaults', () => {
   eq(save.data.upgrades.clawSpeed, 0);
   ok(Array.isArray(save.data.cosmetics.ownedSkins));
   ok(!save.isNew);
+});
+test('v1 save migrates to v2: veterans skip the guided levels', () => {
+  const vet = systems({ 'goldrush.save': JSON.stringify({ saveVersion: 1, stats: { bestLevel: 9 }, tutorial: { done: true } }) });
+  eq(vet.save.data.saveVersion, 2);
+  eq(vet.save.data.tutorial.graduated, true);
+  const rookie = systems({ 'goldrush.save': JSON.stringify({ saveVersion: 1, stats: { bestLevel: 2 } }) });
+  eq(rookie.save.data.tutorial.graduated, false);
 });
 test('save round-trips through storage', () => {
   const a = systems();

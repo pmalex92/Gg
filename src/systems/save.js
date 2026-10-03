@@ -11,7 +11,7 @@
 (function (GR) {
   'use strict';
 
-  const CURRENT_VERSION = 1;
+  const CURRENT_VERSION = 2;
 
   function defaults() {
     return {
@@ -36,7 +36,8 @@
       },
       daily: { best: {}, completed: {}, lastCompleted: '', streak: 0, bestStreak: 0 },
       settings: { sound: true, music: true, reducedMotion: false, haptics: true },
-      tutorial: { done: false },
+      // done: first catch made · graduated: finished the guided levels 1-2
+      tutorial: { done: false, graduated: false },
       ads: { noAds: false, roundsSinceInterstitial: 0, lastInterstitialAt: 0, freeDate: '', freeUsed: {} },
       purchases: { owned: [] },
       missions: { date: '', list: [], bonusPaid: false },
@@ -45,7 +46,12 @@
 
   /** MIGRATIONS[n](data) converts a version-n save into version n+1. */
   const MIGRATIONS = {
-    // 1: (data) => { data.newField = ...; data.saveVersion = 2; return data; },
+    // v2: guided first levels. Players who already got past level 3 skip them.
+    1: (data) => {
+      data.tutorial = data.tutorial || {};
+      data.tutorial.graduated = !!(data.stats && data.stats.bestLevel > 3);
+      return data;
+    },
   };
 
   class SaveManager {

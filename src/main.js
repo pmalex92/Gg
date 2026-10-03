@@ -326,17 +326,35 @@
       this.fx.attach(this.session);
       this.bindSessionEvents(events);
 
+      // Guided start: the aim line helps on levels 1-2 until the player
+      // reaches level 3 once, which "graduates" them with a short message.
+      const tut = this.save.data.tutorial;
+      const goal = '<b>' + GR.util.formatMoney(level.target) + '</b>';
+      let graduating = false;
+      if (!daily && !tut.graduated && run.level >= 3) {
+        tut.graduated = true;
+        graduating = true;
+        this.save.save();
+      }
+      this.aimGuide = !daily && !tut.graduated && run.level <= 2;
+
       let label;
       if (daily) {
         const mod = this.daily.modifierFor(run.date);
-        label = { title: 'DAILY CHALLENGE', sub: mod.name + ' · reach <b>' + GR.util.formatMoney(level.target) + '</b>' };
+        label = { title: 'DAILY CHALLENGE', sub: mod.name + ' · reach ' + goal };
+      } else if (graduating) {
+        label = { title: 'YOU GOT THE GIST!', sub: 'Now test your skills · reach ' + goal, long: true };
       } else {
-        label = { title: 'LEVEL ' + run.level, sub: 'Reach <b>' + GR.util.formatMoney(level.target) + '</b>' };
+        label = { title: 'LEVEL ' + run.level, sub: 'Reach ' + goal };
       }
       this.hud.bind(this.session, label, daily ? [] : run.perks);
       this.tutorialActive = tutorial;
       this.hud.hint(tutorial ? this.launchHint() : null);
       this.mascot.setMood('idle');
+      if (graduating) {
+        this.mascot.react('excited');
+        this.mascot.say('NO MORE HELP!', true);
+      }
       this.setState('PLAYING');
       requestAnimationFrame(() => (this.particles.coinTarget = this.hud.moneyAnchor(this.renderer)));
     }
@@ -750,7 +768,7 @@
         this.fx.update(dt);
         this.particles.update(dt);
         this.hud.update(dt);
-        this.renderer.render(this.session, this.particles, { dt, aimGuide: this.tutorialActive });
+        this.renderer.render(this.session, this.particles, { dt, aimGuide: this.tutorialActive || this.aimGuide });
         if (!this.session.ended) this.audio.setIntensity(this.session.timeLeft <= 10 ? 2 : 1);
       } else if (st === 'MENU' && this.demo) {
         this.demoBot.update(dt);

@@ -298,6 +298,7 @@ kbd {
 .hud-banner span { display: inline-block; margin-top: 0.4em; padding: 0.3em 0.8em; border-radius: 2em; background: rgba(10, 7, 5, 0.75); font: 1.05em var(--display); }
 .hud-banner span b { display: inline; font-size: 1em; color: var(--gold); text-shadow: none; }
 .hud-banner.on { animation: banner 1.9s ease-out forwards; }
+.hud-banner.long.on { animation-duration: 3.2s; }
 
 .hud-hint {
   position: absolute;

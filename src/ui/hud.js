@@ -74,7 +74,7 @@
           return '<span style="--c:' + p.color + '" title="' + GR.util.escapeHtml(p.name + ': ' + p.desc) + '">' + GR.icon(p.icon) + '</span>';
         })
         .join('');
-      if (label) this.banner(label.title, label.sub);
+      if (label) this.banner(label.title, label.sub, label.long);
     }
 
     set(key, value, fn) {
@@ -148,8 +148,9 @@
       m.classList.add('bump');
     }
 
-    banner(title, sub) {
+    banner(title, sub, long) {
       const b = this.el.banner;
+      b.classList.toggle('long', !!long);
       b.querySelector('b').textContent = title;
       b.querySelector('span').innerHTML = sub || '';
       b.classList.remove('on');

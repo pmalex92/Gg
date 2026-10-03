@@ -123,6 +123,8 @@ async function main() {
   await page.click('#ov-perk .perk-card');
   check('Next level starts with the chosen perk', (await waitState(page, 'PLAYING')) === 'PLAYING' && (await page.evaluate((id) => GR.app.run.level === 2 && GR.app.run.perks.indexOf(id) >= 0 && document.querySelectorAll('#hud-perks span').length === 1, picked)), picked);
 
+  check('Aim line still helps on level 2', await page.evaluate(() => GR.app.aimGuide === true));
+
   // Pause
   await page.keyboard.press('Escape');
   check('ESC pauses', (await state(page)) === 'PAUSED');
@@ -259,7 +261,7 @@ async function main() {
   await page.reload();
   await page.waitForFunction(() => window.GR && GR.app && GR.app.state === 'MENU', null, { timeout: 5000 }).catch(() => {});
   const persisted = await page.evaluate(() => ({ st: GR.app.state, coins: GR.app.economy.coins, v: JSON.parse(localStorage.getItem('goldrush.save')).saveVersion }));
-  check('Progress persists across reloads (versioned save)', persisted.st === 'MENU' && persisted.coins === coinsSaved && persisted.v === 1, JSON.stringify(persisted));
+  check('Progress persists across reloads (versioned save)', persisted.st === 'MENU' && persisted.coins === coinsSaved && persisted.v === 2, JSON.stringify(persisted));
 
   // Offline (service worker)
   await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 5000 }).catch(() => {});
@@ -319,6 +321,32 @@ async function main() {
     await pg.screenshot({ path: path.join(OUT, '19-interstitial.png') });
     await pg.waitForFunction(() => GR.app.state === 'PLAYING', null, { timeout: 6000 }).catch(() => {});
     check('Game continues after the interstitial', (await state(pg)) === 'PLAYING');
+    await c.close();
+  }
+  {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const pg = await c.newPage();
+    watch(pg, 'graduation');
+    await pg.goto(BASE);
+    const grad = await pg.evaluate(() => {
+      const app = GR.app;
+      app.save.data.tutorial.done = true;
+      app.save.data.tutorial.graduated = false;
+      app.startCampaign(3);
+      return {
+        banner: document.querySelector('#hud-banner b').textContent,
+        guide: app.aimGuide,
+        graduated: app.save.data.tutorial.graduated,
+      };
+    });
+    check('Reaching level 3 shows "YOU GOT THE GIST!" and drops the aim line', grad.banner === 'YOU GOT THE GIST!' && !grad.guide && grad.graduated, JSON.stringify(grad));
+    await pg.waitForTimeout(500);
+    await pg.screenshot({ path: path.join(OUT, '20-graduation.png') });
+    const again = await pg.evaluate(() => {
+      GR.app.startCampaign(1);
+      return { guide: GR.app.aimGuide, banner: document.querySelector('#hud-banner b').textContent };
+    });
+    check('After graduating, level 1 has no aim line', !again.guide && again.banner === 'LEVEL 1', JSON.stringify(again));
     await c.close();
   }
   {
