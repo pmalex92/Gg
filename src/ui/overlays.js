@@ -12,11 +12,48 @@
     return '<span class="coins-earned">' + icon('coin', 'cur') + '+' + num(n) + '</span>';
   }
 
+  /** "What's next" lines: closest daily mission + cheapest upgrade. */
+  function goalsBlock(g) {
+    if (!g || (!g.mission && !g.upgrade)) return '';
+    let out = '<div class="goals">';
+    if (g.mission) {
+      const pct = Math.round((g.mission.progress / g.mission.goal) * 100);
+      out +=
+        '<div class="goal"><span class="goal-lbl">' + icon('check') + 'MISSION</span>' +
+        '<span class="goal-txt">' + GR.util.escapeHtml(g.mission.text) + '</span>' +
+        '<span class="goal-num">' + num(g.mission.progress) + '/' + num(g.mission.goal) + '</span>' +
+        '<i class="goal-bar"><b style="width:' + pct + '%"></b></i></div>';
+    }
+    if (g.upgrade) {
+      const u = g.upgrade;
+      const ready = u.have >= u.price;
+      const pct = Math.min(100, Math.round((u.have / u.price) * 100));
+      out +=
+        '<div class="goal' + (ready ? ' ready' : '') + '"><span class="goal-lbl">' + icon('upgrade') + 'NEXT UPGRADE</span>' +
+        '<span class="goal-txt">' + GR.util.escapeHtml(u.name) + ' Lv ' + u.level + '</span>' +
+        '<span class="goal-num">' + (ready ? 'READY!' : icon('coin', 'cur') + num(u.price - u.have) + ' to go') + '</span>' +
+        '<i class="goal-bar"><b style="width:' + pct + '%"></b></i></div>';
+    }
+    return out + '</div>';
+  }
+
   function shareCard(title, amount, sub) {
     return (
       '<div class="share-card">' +
       '<small>GOLD RUSH</small><span class="sc-title">' + title + '</span>' +
       '<b>' + money(amount) + '</b>' + (sub ? '<em>' + sub + '</em>' : '') +
+      '</div>'
+    );
+  }
+
+  function perkList(run) {
+    if (!run || !run.perks || !run.perks.length) return '';
+    return (
+      '<div class="perk-chips">' +
+      run.perks.map((id) => {
+        const p = GR.PERKS_BY_ID[id];
+        return '<span class="perk-chip" style="--c:' + p.color + '" title="' + GR.util.escapeHtml(p.desc) + '">' + icon(p.icon) + p.name + '</span>';
+      }).join('') +
       '</div>'
     );
   }
@@ -30,6 +67,10 @@
       this.dailyResult = $('#ov-daily');
       this.ad = $('#ov-ad');
       this.confirmEl = $('#ov-confirm');
+      this.perk = $('#ov-perk');
+      delegate(this.perk, {
+        perk: (b) => app.pickPerk(b.dataset.id),
+      });
 
       delegate(this.pause, {
         resume: () => app.resume(),
@@ -57,12 +98,35 @@
       });
     }
 
+    /** Pick 1 of 3 run perks between levels. */
+    renderPerks(offer, run) {
+      this.perk.innerHTML =
+        '<div class="panel perk-panel" role="dialog" aria-modal="true" aria-labelledby="perk-title">' +
+        '<small class="eyebrow">LEVEL ' + (run.level + 1) + ' NEXT</small>' +
+        '<h2 id="perk-title">PICK A PERK</h2>' +
+        '<p class="sub">It lasts for the rest of this run.</p>' +
+        '<div class="perk-cards">' +
+        offer
+          .map(
+            (p, i) =>
+              '<button class="perk-card" data-action="perk" data-id="' + p.id + '" style="--c:' + p.color + '"' + (i === 0 ? ' data-autofocus' : '') + '>' +
+              '<span class="perk-ico">' + icon(p.icon) + '</span>' +
+              '<span class="perk-txt"><b>' + p.name.toUpperCase() + '</b><span>' + GR.util.escapeHtml(p.desc) + '</span></span>' +
+              '<kbd>' + (i + 1) + '</kbd></button>'
+          )
+          .join('') +
+        '</div>' +
+        (run.perks.length ? '<p class="sub">Your perks: ' + run.perks.map((id) => GR.PERKS_BY_ID[id].name).join(' · ') + '</p>' : '') +
+        '</div>';
+    }
+
     renderPause() {
       const run = this.app.run;
       this.pause.innerHTML =
         '<div class="panel" role="dialog" aria-modal="true" aria-labelledby="pause-title">' +
         '<h2 id="pause-title">PAUSED</h2>' +
         '<p class="sub">' + (run && run.mode === 'daily' ? 'Daily Challenge' : 'Level ' + (run ? run.level : 1)) + '</p>' +
+        perkList(run) +
         '<button class="btn btn-primary big" data-action="resume">' + icon('play') + 'RESUME</button>' +
         '<button class="btn btn-secondary" data-action="restart">' + icon('restart') + 'RESTART LEVEL</button>' +
         '<button class="btn btn-secondary" data-action="settings">' + icon('gear') + 'SETTINGS</button>' +
@@ -87,6 +151,7 @@
         '<div><small>COINS</small><b>' + coinsLine(r.coins) + '</b></div>' +
         '</div>' +
         '<ul class="breakdown">' + lines + (r.coinMult > 1 ? '<li><span>Coin Multiplier</span><b>×' + r.coinMult.toFixed(2).replace(/0$/, '') + '</b></li>' : '') + '</ul>' +
+        goalsBlock(r.goals) +
         '<button class="btn btn-reward" data-action="double"' + (r.canDouble ? '' : ' disabled') + '>' + icon('tv') + 'DOUBLE YOUR COINS <small>+' + num(r.coins) + '</small></button>' +
         '<button class="btn btn-primary big" data-action="next" data-autofocus>NEXT LEVEL ' + icon('play') + '</button>' +
         '<div class="row2">' +
@@ -108,6 +173,7 @@
         '<div><small>COINS EARNED</small><b>' + coinsLine(r.runCoins) + '</b></div>' +
         '<div><small>BEST SCORE</small><b>' + money(r.best) + '</b></div>' +
         '</div>' +
+        goalsBlock(r.goals) +
         (r.newBest ? '<button class="btn btn-secondary" data-action="share">' + icon('share') + 'SHARE SCORE</button>' : '') +
         (r.canRevive
           ? '<button class="btn btn-reward" data-action="revive">' + icon('tv') + 'REVIVE <small>+' + GR.CONFIG.REVIVE_TIME + 's, keep your $</small></button>'

@@ -22,6 +22,12 @@ Controls: **tap / click / SPACE / ENTER** launch the claw · **ESC** pause ·
 
 ## Deploy
 
+**GitHub Pages (automatic):** `.github/workflows/pages.yml` publishes the game
+on every push to `main`. One-time setup: repository **Settings → Pages →
+Build and deployment → Source: GitHub Actions**. The game is then live at
+`https://<user>.github.io/<repo>/`.
+
+**Anywhere else:**
 Upload the folder to any static host (Netlify, GitHub Pages, Cloudflare Pages,
 S3, a shared web server...). Nothing to compile. When you ship an update, bump
 `CACHE` in `sw.js` (and `VERSION` in `src/config.js`) so returning players get
@@ -36,6 +42,9 @@ the new files.
 | Procedural, seeded level generator + difficulty curve | `src/game/levelgen.js` |
 | Daily Challenge (date seed + daily modifier) and forgiving streak | `src/systems/daily.js` |
 | Coins, premium tokens, upgrades, boosters, cosmetics, XP | `src/systems/economy.js` |
+| Run perks (pick 1 of 3 between levels) | `src/data/perks.js` |
+| Daily missions | `src/systems/missions.js` |
+| Nugget the mascot | `src/game/mascot.js` |
 | Achievements (data-driven) | `src/data/achievements.js`, `src/systems/achievements.js` |
 | Versioned local save with migrations | `src/systems/save.js` |
 | Leaderboard service (offline preview + REST adapter) | `src/systems/leaderboard.js` |
@@ -47,7 +56,7 @@ the new files.
 | HUD, menus, overlays | `src/ui/*.js`, `styles/main.css` |
 | State machine, loop, run flow | `src/main.js` |
 
-Game states: `BOOT, MENU, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER,
+Game states: `BOOT, MENU, PLAYING, PAUSED, LEVEL_COMPLETE, PERK_PICK, GAME_OVER,
 DAILY_RESULT, SHOP, UPGRADES, DAILY_CHALLENGE, SETTINGS, ACHIEVEMENTS,
 LEADERBOARD`.
 
@@ -84,6 +93,12 @@ is why it can be simulated headlessly.
   checkpoint you can start from, so progress never feels wasted.
 - **Combo:** consecutive valuable catches give +10% per step (up to +50%);
   rocks or empty pulls reset it.
+- **Run perks:** after each won level the player picks 1 of 3 perks that last
+  for the rest of the run (Gem Polish, Demolition Pro, Rock Collector, Good
+  Boy, Piggy Bank...), so every run plays differently. Not in the Daily.
+- **Daily missions:** three small goals per day (same for everyone on a date),
+  paid automatically; finishing all three pays a bonus token. Result screens
+  show the closest mission and the next affordable upgrade.
 - **Moving targets/obstacles:** cave crabs (some carry a gem) from level 7,
   rolling boulders that block lanes from level 10.
 - **TNT:** blows up everything nearby — rocks are cleared (great for shield
@@ -126,10 +141,10 @@ is applied via `Economy.grant()`. Add `?dev=1` to simulate purchases locally.
 ## Tools
 
 ```bash
-node tools/test-logic.js          # 27 headless unit tests (save, economy, streak, generator, rules)
+node tools/test-logic.js          # 34 headless unit tests (save, economy, streak, generator, rules)
 node tools/simulate.js 25 12      # balance report: bot pass-rates per level/upgrade tier
 npx http-server -c-1 . &          # then:
-node tools/qa.js                  # 47-step browser QA (needs Playwright)
+node tools/qa.js                  # 50-step browser QA (needs Playwright)
 npx eslint .                      # lint
 ```
 

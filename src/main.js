@@ -6,7 +6,7 @@
  * gameplay events to economy, achievements, UI, audio and ads.
  *
  * States: BOOT, MENU, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER,
- *         DAILY_RESULT, SHOP, UPGRADES, DAILY_CHALLENGE, SETTINGS,
+ *         PERK_PICK, DAILY_RESULT, SHOP, UPGRADES, DAILY_CHALLENGE, SETTINGS,
  *         ACHIEVEMENTS, LEADERBOARD
  */
 (function (GR) {
@@ -24,12 +24,13 @@
     LEADERBOARD: '#screen-leaderboard',
     SETTINGS: '#screen-settings',
     PAUSED: '#ov-pause',
+    PERK_PICK: '#ov-perk',
     LEVEL_COMPLETE: '#ov-complete',
     GAME_OVER: '#ov-gameover',
     DAILY_RESULT: '#ov-daily',
   };
-  const GAME_LAYER = { PLAYING: 1, PAUSED: 1, LEVEL_COMPLETE: 1, GAME_OVER: 1, DAILY_RESULT: 1 };
-  const RESULT_STATES = { LEVEL_COMPLETE: 1, GAME_OVER: 1, DAILY_RESULT: 1 };
+  const GAME_LAYER = { PLAYING: 1, PAUSED: 1, LEVEL_COMPLETE: 1, PERK_PICK: 1, GAME_OVER: 1, DAILY_RESULT: 1 };
+  const RESULT_STATES = { LEVEL_COMPLETE: 1, PERK_PICK: 1, GAME_OVER: 1, DAILY_RESULT: 1 };
 
   class App {
     constructor() {
@@ -44,6 +45,7 @@
       this.economy = new GR.Economy(this.save, this.bus);
       this.achievements = new GR.Achievements(this.save, this.economy, this.bus);
       this.daily = new GR.Daily(this.save, this.economy, this.bus);
+      this.missions = new GR.Missions(this.save, this.economy, this.bus);
       this.leaderboard = new GR.LeaderboardService(this.save, C.LEADERBOARD);
       this.ads = new GR.AdManager(this.save, C.ADS);
       this.purchases = new GR.PurchaseManager(this.save, this.economy, this.devMode);
@@ -139,6 +141,9 @@
         },
         onBooster: (i) => {
           if (this.state === 'PLAYING') this.useBooster(GR.BOOSTERS[i].id);
+          else if (this.state === 'PERK_PICK' && this.perkOffer && this.perkOffer[i] && performance.now() >= this.inputLockUntil) {
+            this.pickPerk(this.perkOffer[i].id);
+          }
         },
       });
 
@@ -177,6 +182,13 @@
       });
       window.addEventListener('pagehide', () => this.save.flush());
 
+      this.bus.on('mission', (e) => {
+        this.audio.play('achievement');
+        this.toasts.show('MISSION COMPLETE', GR.util.escapeHtml(e.text) + ' · ' + GR.dom.rewardLabel({ coins: e.mission.coins }), 'check');
+      });
+      this.bus.on('missionsAll', () => {
+        this.toasts.show('ALL MISSIONS DONE!', 'Bonus: ' + GR.dom.rewardLabel({ tokens: 1 }), 'token');
+      });
       this.bus.on('achievement', (def) => {
         this.audio.play('achievement');
         this.toasts.show('ACHIEVEMENT: ' + def.name.toUpperCase(), GR.dom.rewardLabel(def.reward), 'trophy');
@@ -276,6 +288,7 @@
         coins: 0,
         revived: false,
         bestAtStart: this.save.data.stats.bestRun,
+        perks: [],
       };
       this.startLevel();
     }
@@ -293,12 +306,15 @@
       const level = daily ? GR.LevelGen.daily(run.date) : GR.LevelGen.campaign(run.level, run.seed);
       const tutorial = !daily && !this.save.data.tutorial.done;
       const events = new GR.EventBus();
+      // Perks only exist in campaign runs; the Daily stays equal for everyone.
+      run.mods = GR.Perks.modifiers(daily ? [] : run.perks);
       this.session = new GR.GameSession({
         level,
         events,
         tutorial,
-        stats: daily ? GR.Economy.baseClawStats() : this.economy.clawStats(),
+        stats: daily ? GR.Economy.baseClawStats() : GR.Perks.applyToStats(this.economy.clawStats(), run.mods),
         boostersAllowed: !daily,
+        mods: run.mods,
       });
       run.convertedMoney = 0;
       run.convertedFrenzy = 0;
@@ -317,7 +333,7 @@
       } else {
         label = { title: 'LEVEL ' + run.level, sub: 'Reach <b>' + GR.util.formatMoney(level.target) + '</b>' };
       }
-      this.hud.bind(this.session, label);
+      this.hud.bind(this.session, label, daily ? [] : run.perks);
       this.tutorialActive = tutorial;
       this.hud.hint(tutorial ? this.launchHint() : null);
       this.mascot.setMood('idle');
@@ -343,6 +359,11 @@
         if (t === 'crab') stats.crabs += 1;
         if (t === 'relic') stats.relics += 1;
         if (t === 'mystery_bag') stats.bags += 1;
+        if (t === 'diamond') this.missions.track('diamond');
+        if (e.obj.kind === 'gold') this.missions.track('gold');
+        if (t === 'mystery_bag') this.missions.track('bag');
+        if (e.value > 0) this.missions.track('money', e.value);
+        if (e.combo >= 2) this.missions.track('combo', e.combo);
         if (e.obj.kind === 'rock') stats.rocks += 1;
         stats.bestCombo = Math.max(stats.bestCombo, e.combo);
         if (this.tutorialActive && e.obj.kind !== 'rock') {
@@ -356,7 +377,12 @@
       });
       ev.on('explode', () => {
         stats.tntExploded += 1;
+        this.missions.track('tnt');
       });
+      ev.on('blastPayout', (e) => {
+        if (e.value > 0) this.missions.track('money', e.value);
+      });
+      ev.on('fetch', (e) => this.missions.track('money', e.value));
       ev.on('end', (r) => this.onSessionEnd(r));
     }
 
@@ -376,7 +402,11 @@
         st.levelsCompleted += 1;
         if (result.rocksCollected === 0 && result.catches > 0) st.cleanLevels += 1;
         if (result.stars >= 3) st.threeStarLevels += 1;
+        this.missions.track('level');
+        if (result.rocksCollected === 0 && result.catches > 0) this.missions.track('cleanLevel');
+        if (result.stars >= 3) this.missions.track('stars3');
       }
+      if (!campaign) this.missions.track('daily');
       const prevBestLevel = st.bestLevel;
       if (campaign && result.success) st.bestLevel = Math.max(st.bestLevel, run.level + 1);
 
@@ -411,7 +441,7 @@
         breakdown.push(['Frenzy coins', frenzy]);
         coins += frenzy;
       }
-      const coinMult = this.economy.clawStats().coinMult;
+      const coinMult = this.economy.clawStats().coinMult * (run.mods ? run.mods.coinMult : 1);
       coins = Math.round(coins * coinMult);
       this.economy.addCoins(coins, 'round');
       run.coins += coins;
@@ -481,6 +511,7 @@
       this.resultTimer = setTimeout(() => {
         if (this.state !== 'PLAYING' || !this.session || !this.session.ended) return;
         data.affordable = this.economy.affordableUpgrades();
+        data.goals = this.nextGoals();
         if (view === 'LEVEL_COMPLETE') this.overlays.renderComplete(data);
         else if (view === 'GAME_OVER') this.overlays.renderGameOver(data);
         else this.overlays.renderDaily(data);
@@ -493,10 +524,42 @@
       }, delay);
     }
 
+    /** After a won level: offer 3 run perks, then continue. */
     nextLevel() {
       if (this.state !== 'LEVEL_COMPLETE') return;
+      const offer = GR.Perks.offer(this.run.perks);
+      if (!offer.length) return this.continueRun();
+      this.perkOffer = offer;
+      this.overlays.renderPerks(offer, this.run);
+      this.setState('PERK_PICK');
+    }
+
+    pickPerk(id) {
+      if (this.state !== 'PERK_PICK' || !GR.PERKS_BY_ID[id]) return;
+      this.run.perks.push(id);
+      this.perkOffer = null;
+      this.audio.play('upgrade');
+      this.missions.track('perk');
+      this.continueRun();
+    }
+
+    continueRun() {
       this.run.level += 1;
       this.ads.showInterstitial('level_transition').then(() => this.startLevel());
+    }
+
+    /** "What's next" hints for result screens: closest mission + cheapest upgrade. */
+    nextGoals() {
+      const goals = {};
+      const m = this.missions.closest();
+      if (m) goals.mission = { text: this.missions.describe(m), progress: m.progress, goal: m.goal, coins: m.coins };
+      let best = null;
+      GR.UPGRADES.forEach((u) => {
+        const price = this.economy.nextUpgradePrice(u.id);
+        if (price !== null && (!best || price < best.price)) best = { name: u.name, level: this.economy.upgradeLevel(u.id) + 1, price };
+      });
+      if (best) goals.upgrade = Object.assign(best, { have: this.economy.coins });
+      return goals;
     }
 
     playAgain() {

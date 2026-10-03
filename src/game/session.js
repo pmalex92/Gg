@@ -13,6 +13,15 @@
   const C = GR.CONFIG;
   const VALUABLE = { gold: 1, gem: 1, relic: 1, critter: 1, mystery: 1 };
 
+  /** Neutral run modifiers (perks fold their effects into this shape). */
+  function defaultMods() {
+    return {
+      valueMult: {}, tntPayout: C.TNT.payout, rockKeepsCombo: false,
+      comboStep: C.COMBO.bonusPerStep, comboMax: C.COMBO.maxStep,
+      bagMult: 1, fetch: false, swingMult: 1,
+    };
+  }
+
   class GameSession {
     /**
      * @param {object} opts
@@ -22,6 +31,7 @@
      *   tutorial   — timer waits for the first launch
      *   boostersAllowed — false in the Daily Challenge
      *   infinite   — demo/attract mode: no timer
+     *   mods       — run perk modifiers (see data/perks.js)
      */
     constructor(opts) {
       this.level = opts.level;
@@ -31,6 +41,8 @@
       this.tutorial = !!opts.tutorial;
       this.boostersAllowed = opts.boostersAllowed !== false;
       this.infinite = !!opts.infinite;
+      this.mods = Object.assign(defaultMods(), opts.mods || {});
+      this.fetched = false;
 
       // Deep-copy objects so restarting a level re-uses pristine data.
       this.objects = opts.level.objects.map((o) => Object.assign({}, o));
@@ -142,6 +154,14 @@
         }
       }
 
+      // "Good Boy" perk: Nugget digs up a bonus find early in the level.
+      if (this.mods.fetch && !this.fetched && this.timerStarted && this.elapsed > 6) {
+        this.fetched = true;
+        const value = Math.max(50, Math.round((this.level.target * 0.08) / 10) * 10);
+        this.money += value;
+        this.events.emit('fetch', { value });
+      }
+
       this.updateMovers(dt);
       if (this.boosters.magnet > 0 && this.claw.state === 'extend') this.applyMagnet(dt);
       this.claw.update(dt);
@@ -240,7 +260,8 @@
         o.alive = false;
         let payout = 0;
         if (VALUABLE[o.kind] && o.kind !== 'mystery') {
-          payout = Math.round((o.value * C.TNT.payout * (this.boosters.double > 0 ? 2 : 1)) / 5) * 5;
+          const kindMult = this.mods.valueMult[o.kind] || 1;
+          payout = Math.round((o.value * kindMult * this.mods.tntPayout * (this.boosters.double > 0 ? 2 : 1)) / 5) * 5;
           this.money += payout;
         }
         this.events.emit('blastPayout', { obj: o, value: payout });
@@ -279,20 +300,24 @@
       let bag = null;
       if (obj.kind === 'mystery') {
         bag = this.openBag(obj);
-        base = bag.money || 0;
+        base = (bag.money || 0) * this.mods.bagMult;
+      } else {
+        base *= this.mods.valueMult[obj.kind] || 1;
       }
 
       if (obj.kind === 'rock') {
         this.rocksCollected += 1;
-        if (this.combo >= 2) this.events.emit('comboBreak', { combo: this.combo });
-        this.combo = 0;
+        if (!this.mods.rockKeepsCombo) {
+          if (this.combo >= 2) this.events.emit('comboBreak', { combo: this.combo });
+          this.combo = 0;
+        }
       } else if (VALUABLE[obj.kind] && base > 0) {
         this.combo += 1;
         this.bestCombo = Math.max(this.bestCombo, this.combo);
       }
 
-      const step = Math.min(C.COMBO.maxStep, this.combo);
-      const comboMult = obj.kind !== 'rock' && step >= 2 ? 1 + C.COMBO.bonusPerStep * (step - 1) : 1;
+      const step = Math.min(this.mods.comboMax, this.combo);
+      const comboMult = obj.kind !== 'rock' && step >= 2 ? 1 + this.mods.comboStep * (step - 1) : 1;
       const doubled = obj.doubled ? 2 : 1;
       const value = Math.round(base * doubled * comboMult);
       this.money += value;

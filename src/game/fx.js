@@ -85,6 +85,17 @@
           this.tease('impatient', TAUNTS.late);
         }
       });
+      on('fetch', (e) => {
+        // "Good Boy" perk: Nugget digs up a bonus find.
+        const m = this.mascot;
+        const x = m ? m.x : 200;
+        const y = m ? m.y - 40 : 220;
+        this.tease('excited', ['FOUND ONE!', 'FOR YOU!', 'GOOD BOY!']);
+        this.p.text('+' + fmt(e.value), x, y - 30, { size: 32, color: '#ffd23f', life: 1.2 });
+        this.p.coins(x, y, 6);
+        this.p.burst('dust', x, y + 30, 10, { speed: 120, life: 0.6, size: 3.5, color: this.theme.dust, g: 300 });
+        this.sound('coin');
+      });
       on('overtime', () => this.p.text('LAST CATCH!', 360, 330, { size: 44, color: '#ffffff', vy: -20, life: 1.4 }));
     }
 

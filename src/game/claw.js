@@ -78,7 +78,7 @@
       const frenzy = s.boosters.frenzy > 0;
 
       if (this.state === 'swing') {
-        this.phase += s.level.swingSpeed * (frenzy ? 1.35 : 1) * dt;
+        this.phase += s.level.swingSpeed * s.mods.swingMult * (frenzy ? 1.35 : 1) * dt;
         this.angle = CC.maxAngle * Math.sin(this.phase);
         this.grip += (0.15 - this.grip) * GR.util.damp(10, dt);
       } else if (this.state === 'extend') {

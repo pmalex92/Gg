@@ -39,6 +39,7 @@
       tutorial: { done: false },
       ads: { noAds: false, roundsSinceInterstitial: 0, lastInterstitialAt: 0, freeDate: '', freeUsed: {} },
       purchases: { owned: [] },
+      missions: { date: '', list: [], bonusPaid: false },
     };
   }
 

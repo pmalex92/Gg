@@ -37,6 +37,34 @@
     $$('[data-bind="tokens"]').forEach((el) => (el.textContent = num(eco.tokens)));
   }
 
+  /** Today's three missions with progress bars (used on the Daily screen). */
+  function missionsCard(app) {
+    const list = app.missions.list();
+    const done = list.filter((m) => m.done).length;
+    return (
+      '<div class="card">' +
+      '<h4>' + icon('check') + 'DAILY MISSIONS · ' + done + '/' + list.length + '</h4>' +
+      '<ul class="missions">' +
+      list
+        .map((m) => {
+          const pct = Math.round((m.progress / m.goal) * 100);
+          return (
+            '<li class="' + (m.done ? 'done' : '') + '">' +
+            '<span class="m-ico">' + icon(m.done ? 'check' : 'star') + '</span>' +
+            '<span class="m-body"><b>' + esc(app.missions.describe(m)) + '</b>' +
+            (m.done ? '<small class="ok">COMPLETE</small>' : '<i class="m-bar"><em style="width:' + pct + '%"></em></i><small>' + num(m.progress) + ' / ' + num(m.goal) + '</small>') +
+            '</span>' +
+            '<span class="m-reward">' + GR.dom.rewardLabel({ coins: m.coins }) + '</span>' +
+            '</li>'
+          );
+        })
+        .join('') +
+      '</ul>' +
+      '<p class="note">Finish all three for a bonus ' + icon('token', 'cur') + '1. New missions every day.</p>' +
+      '</div>'
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // HOME
   // ---------------------------------------------------------------------------
@@ -81,6 +109,7 @@
       const streak = app.daily.currentStreak();
       const dailyDone = app.daily.isCompleted(app.daily.today());
       const dailyPlayed = app.daily.bestFor(app.daily.today()) > 0;
+      const todo = app.missions.list().filter((m) => !m.done).length + (dailyDone ? 0 : 1);
       const upg = app.economy.affordableUpgrades();
       const cps = this.checkpoints();
       const start = this.chosenStart();
@@ -106,7 +135,7 @@
           : '') +
         '<div class="tiles">' +
         '<button class="btn tile" data-action="daily">' + icon('calendar') + '<span>DAILY</span>' +
-        (!dailyPlayed ? '<em class="badge">NEW</em>' : dailyDone ? '<em class="badge ok">' + icon('check') + '</em>' : '') + '</button>' +
+        (!dailyPlayed ? '<em class="badge">NEW</em>' : todo ? '<em class="badge">' + todo + '</em>' : '<em class="badge ok">' + icon('check') + '</em>') + '</button>' +
         '<button class="btn tile" data-action="shop">' + icon('shop') + '<span>SHOP</span></button>' +
         '<button class="btn tile" data-action="upgrades">' + icon('upgrade') + '<span>UPGRADES</span>' + (upg ? '<em class="badge">' + upg + '</em>' : '') + '</button>' +
         '</div>' +
@@ -172,6 +201,7 @@
         (best ? '<button class="btn btn-secondary" data-action="share">' + icon('share') + 'SHARE MY SCORE</button>' : '') +
         '<p class="note">Everyone gets this exact level today. Standard claw — upgrades and boosters are off, so it\'s pure skill.</p>' +
         '</div>' +
+        missionsCard(app) +
         '<div class="card">' +
         '<h4>' + icon('flame') + 'STREAK · ' + streak + ' DAY' + (streak === 1 ? '' : 'S') + '</h4>' +
         '<p class="note">Beat the daily target on consecutive days. Missing a single day won\'t break your streak.</p>' +

@@ -104,7 +104,7 @@
       }
       this.wait += dt;
       // Aim where the claw will be once our reaction delay has passed.
-      const lead = s.claw.phase + s.level.swingSpeed * this.reaction;
+      const lead = s.claw.phase + s.level.swingSpeed * s.mods.swingMult * this.reaction;
       const hit = this.castRay(CC.maxAngle * Math.sin(lead));
       if (!hit) return;
       const sc = this.score(hit.obj, hit.dist);
