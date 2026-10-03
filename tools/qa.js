@@ -115,7 +115,13 @@ async function main() {
   check('Rewarded ad doubles the coins', doubled > coinsAfterL1, coinsAfterL1 + ' -> ' + doubled);
 
   await page.click('#ov-complete [data-action="next"]');
-  check('Next level starts', (await waitState(page, 'PLAYING')) === 'PLAYING' && (await page.evaluate(() => GR.app.run.level)) === 2);
+  check('Perk choice appears between levels', (await waitState(page, 'PERK_PICK')) === 'PERK_PICK');
+  check('Three different perks are offered', (await page.$$eval('#ov-perk .perk-card', (els) => new Set(els.map((e) => e.dataset.id)).size)) === 3);
+  await page.waitForTimeout(700);
+  await shot(page, '04b-perk-pick');
+  const picked = await page.$eval('#ov-perk .perk-card', (e) => e.dataset.id);
+  await page.click('#ov-perk .perk-card');
+  check('Next level starts with the chosen perk', (await waitState(page, 'PLAYING')) === 'PLAYING' && (await page.evaluate((id) => GR.app.run.level === 2 && GR.app.run.perks.indexOf(id) >= 0 && document.querySelectorAll('#hud-perks span').length === 1, picked)), picked);
 
   // Pause
   await page.keyboard.press('Escape');
@@ -200,6 +206,7 @@ async function main() {
   await page.click('#screen-home [data-action="daily"]');
   await page.waitForTimeout(300);
   await shot(page, '14-daily');
+  check('Daily screen lists 3 missions', (await page.$$eval('.missions li', (els) => els.length)) === 3);
   const det = await page.evaluate(() => {
     const a = GR.LevelGen.daily('2026-10-02');
     const b = GR.LevelGen.daily('2026-10-02');
@@ -303,6 +310,9 @@ async function main() {
     await waitState(pg, 'LEVEL_COMPLETE');
     await pg.evaluate(() => (GR.app.save.data.ads.roundsSinceInterstitial = 3));
     await pg.click('#ov-complete [data-action="next"]');
+    await waitState(pg, 'PERK_PICK');
+    await pg.waitForTimeout(700); // panels ignore input for a moment after opening
+    await pg.keyboard.press('2');
     await pg.waitForTimeout(300);
     const inter = await pg.evaluate(() => document.querySelector('#ov-ad').classList.contains('is-open') && /INTERSTITIAL/.test(document.querySelector('#ov-ad').textContent));
     check('Interstitial placeholder after several rounds (?ads=demo)', inter);

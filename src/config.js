@@ -8,7 +8,7 @@
   'use strict';
 
   GR.CONFIG = {
-    VERSION: '1.1.0',
+    VERSION: '1.2.0',
     SAVE_KEY: 'goldrush.save',
 
     WORLD_W: 720,

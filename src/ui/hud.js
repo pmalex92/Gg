@@ -29,6 +29,7 @@
         '    <div class="hud-bar"><i id="hud-progress"></i></div>' +
         '  </div>' +
         '</div>' +
+        '<div class="hud-perks" id="hud-perks"></div>' +
         '<div class="hud-combo" id="hud-combo" aria-live="polite"></div>' +
         '<div class="hud-banner" id="hud-banner"><b></b><span></span></div>' +
         '<div class="hud-hint" id="hud-hint" aria-live="polite"></div>' +
@@ -48,6 +49,7 @@
         money: $('hud-money'), goal: $('hud-goal'), progress: $('hud-progress'), combo: $('hud-combo'),
         banner: $('hud-banner'), hint: $('hud-hint'), done: $('hud-done'), boosters: $('hud-boosters'), note: $('hud-note'),
         tint: $('hud-tint'),
+        perks: $('hud-perks'),
       };
       this.boosterEls = {};
       GR.dom.$$('.booster', root).forEach((b) => (this.boosterEls[b.dataset.id] = { btn: b, count: b.querySelector('.count') }));
@@ -55,7 +57,7 @@
       this.displayMoney = 0;
     }
 
-    bind(session, label) {
+    bind(session, label, perks) {
       this.session = session;
       this.displayMoney = session.money;
       this.cache = {};
@@ -66,6 +68,12 @@
       this.el.boosters.hidden = !session.boostersAllowed;
       this.el.note.hidden = session.boostersAllowed;
       this.el.combo.classList.remove('on');
+      this.el.perks.innerHTML = (perks || [])
+        .map((id) => {
+          const p = GR.PERKS_BY_ID[id];
+          return '<span style="--c:' + p.color + '" title="' + GR.util.escapeHtml(p.name + ': ' + p.desc) + '">' + GR.icon(p.icon) + '</span>';
+        })
+        .join('');
       if (label) this.banner(label.title, label.sub);
     }
 

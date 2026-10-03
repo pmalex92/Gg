@@ -14,9 +14,9 @@ const ROOT = path.join(__dirname, '..');
 const FILES = [
   'src/core/util.js', 'src/core/rng.js', 'src/core/events.js', 'src/config.js',
   'src/data/objects.js', 'src/data/upgrades.js', 'src/data/boosters.js', 'src/data/cosmetics.js',
-  'src/data/achievements.js', 'src/data/products.js',
+  'src/data/achievements.js', 'src/data/products.js', 'src/data/perks.js',
   'src/systems/save.js', 'src/systems/economy.js', 'src/systems/achievements.js', 'src/systems/daily.js',
-  'src/systems/leaderboard.js',
+  'src/systems/leaderboard.js', 'src/systems/missions.js',
   'src/game/levelgen.js', 'src/game/claw.js', 'src/game/session.js', 'src/game/autopilot.js',
 ];
 
@@ -297,6 +297,81 @@ test('revive continues with extra time', () => {
   s.revive(15);
   ok(!s.ended);
   eq(s.timeLeft, 15);
+});
+
+console.log('\n[perks]');
+test('perk offers are 3 distinct perks the run does not own', () => {
+  const { GR } = systems();
+  const owned = ['gem_polish', 'overtime'];
+  const offer = GR.Perks.offer(owned);
+  eq(offer.length, 3);
+  eq(new Set(offer.map((p) => p.id)).size, 3);
+  ok(offer.every((p) => owned.indexOf(p.id) < 0));
+});
+test('value perks raise payouts; Rock Collector keeps the combo', () => {
+  const { GR } = systems();
+  const mods = GR.Perks.modifiers(['gem_polish', 'rock_collector']);
+  const s = session(GR, GR.LevelGen.campaign(1, 's'), { mods });
+  s.deliver({ type: 'diamond', kind: 'gem', value: 500, weight: 1, r: 17 });
+  eq(s.money, 650);
+  s.deliver({ type: 'small_gold', kind: 'gold', value: 50, weight: 1, r: 20 });
+  s.deliver({ type: 'small_rock', kind: 'rock', value: 10, weight: 3, r: 20 });
+  eq(s.combo, 2, 'rock no longer breaks the combo');
+  eq(s.money, 650 + 55 + 80);
+});
+test('Demolition Pro pays full TNT value', () => {
+  const { GR } = systems();
+  const lvl = { mode: 'campaign', level: 3, seed: 't', target: 100, time: 60, swingSpeed: 1.7, objects: [
+    { uid: 1, type: 'tnt', kind: 'tnt', x: 300, y: 600, r: 25, value: 0, weight: 0, alive: true },
+    { uid: 2, type: 'diamond', kind: 'gem', x: 380, y: 600, r: 17, value: 500, weight: 1, alive: true },
+  ] };
+  const s = session(GR, lvl, { mods: GR.Perks.modifiers(['demolition']) });
+  s.grab(s.objects[0]);
+  eq(s.money, 500);
+});
+test('Good Boy perk: Nugget fetches a bonus once per level', () => {
+  const { GR } = systems();
+  const s = session(GR, GR.LevelGen.campaign(3, 's'), { mods: GR.Perks.modifiers(['good_boy']) });
+  let fetched = 0;
+  s.events.on('fetch', () => fetched++);
+  for (let i = 0; i < 20 * 60; i++) s.update(1 / 60);
+  eq(fetched, 1);
+  ok(s.money >= 50);
+});
+test('claw perks merge with upgrade stats', () => {
+  const { GR } = systems();
+  const st = GR.Perks.applyToStats({ retractMult: 1.1, weightReduction: 0.2, extraTime: 4, grabBonus: 0, coinMult: 1 }, GR.Perks.modifiers(['greased_reel', 'strong_arm', 'overtime']));
+  ok(Math.abs(st.retractMult - 1.265) < 1e-9);
+  ok(Math.abs(st.weightReduction - 0.4) < 1e-9);
+  eq(st.extraTime, 10);
+});
+
+console.log('\n[missions]');
+test('three missions per day, same list for the same date', () => {
+  const a = systems();
+  const b = systems();
+  const la = a.GR && new a.GR.Missions(a.save, a.eco, a.bus).list();
+  const lb = new b.GR.Missions(b.save, b.eco, b.bus).list();
+  eq(la.length, 3);
+  eq(JSON.stringify(la.map((m) => [m.id, m.goal])), JSON.stringify(lb.map((m) => [m.id, m.goal])));
+});
+test('missions complete, pay coins once, and all three pay a bonus token', () => {
+  const { GR, save, eco, bus } = systems();
+  const ms = new GR.Missions(save, eco, bus);
+  const events = { diamond: 'diamond', gold: 'gold', money: 'money', levels: 'level', combo: 'combo', tnt: 'tnt', clean: 'cleanLevel', bags: 'bag', stars: 'stars3', daily: 'daily', perks: 'perk' };
+  const list = ms.list();
+  list.forEach((m) => {
+    const ev = events[m.id];
+    if (m.id === 'combo') ms.track(ev, m.goal);
+    else if (m.id === 'money') ms.track(ev, m.goal);
+    else for (let i = 0; i < m.goal; i++) ms.track(ev);
+  });
+  ok(list.every((m) => m.done));
+  const total = list.reduce((s, m) => s + m.coins, 0);
+  eq(eco.coins, total);
+  eq(eco.tokens, 1);
+  ms.track('diamond');
+  eq(eco.coins, total, 'no double pay');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

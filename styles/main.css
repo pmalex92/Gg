@@ -887,6 +887,121 @@ kbd {
   font: 2em var(--display);
 }
 
+/* ----------------------------------------------------- Perks, goals, missions */
+
+.hud-perks {
+  position: absolute;
+  top: calc(var(--safe-top) + 3.6em);
+  left: 0.6em;
+  display: flex;
+  gap: 0.25em;
+  flex-wrap: wrap;
+  max-width: 40%;
+}
+.hud-perks span {
+  width: 1.75em;
+  height: 1.75em;
+  display: grid;
+  place-items: center;
+  border-radius: 0.5em;
+  background: rgba(14, 10, 7, 0.8);
+  border: 2px solid var(--c);
+  color: var(--c);
+}
+.hud-perks .ico { width: 1em; height: 1em; }
+
+.perk-panel { gap: 0.7em; }
+.perk-cards { display: flex; flex-direction: column; gap: 0.55em; }
+.perk-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.75em;
+  padding: 0.8em 0.9em;
+  border: 3px solid var(--c);
+  border-radius: 1em;
+  background: var(--panel-2);
+  box-shadow: 0 0.25em 0 rgba(0, 0, 0, 0.5);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.15s ease;
+  animation: perkIn 0.35s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.perk-card:nth-child(2) { animation-delay: 0.08s; }
+.perk-card:nth-child(3) { animation-delay: 0.16s; }
+.perk-card:hover { filter: brightness(1.12); }
+.perk-card:active { transform: translateY(0.15em) scale(0.98); }
+.perk-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.perk-ico {
+  width: 2.8em;
+  height: 2.8em;
+  display: grid;
+  place-items: center;
+  border-radius: 0.8em;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--c);
+}
+.perk-ico .ico { width: 1.7em; height: 1.7em; }
+.perk-txt { display: flex; flex-direction: column; gap: 0.2em; min-width: 0; }
+.perk-txt b { font: 1.1em var(--display); letter-spacing: 0.03em; color: var(--c); }
+.perk-txt span { font-size: 0.86em; color: var(--text); line-height: 1.3; }
+.perk-card kbd { position: absolute; top: 0.45em; right: 0.55em; color: var(--muted); }
+@keyframes perkIn { 0% { opacity: 0; transform: translateY(0.8em) scale(0.92); } 100% { opacity: 1; transform: none; } }
+
+.perk-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35em; }
+.perk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.25em 0.6em;
+  border-radius: 2em;
+  border: 2px solid var(--c);
+  color: var(--c);
+  font: 0.78em var(--display);
+  letter-spacing: 0.03em;
+}
+.perk-chip .ico { width: 1.1em; height: 1.1em; }
+
+.goals { display: flex; flex-direction: column; gap: 0.4em; text-align: left; }
+.goal {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15em 0.6em;
+  padding: 0.5em 0.7em;
+  border-radius: 0.7em;
+  background: rgba(0, 0, 0, 0.3);
+}
+.goal-lbl { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.3em; font: 0.68em var(--display); letter-spacing: 0.1em; color: var(--muted); }
+.goal-lbl .ico { width: 1.1em; height: 1.1em; color: var(--gold); }
+.goal-txt { font: 0.95em var(--display); min-width: 0; }
+.goal-num { font: 0.85em var(--display); color: var(--gold-hi); display: inline-flex; align-items: center; gap: 0.25em; white-space: nowrap; }
+.goal-bar { grid-column: 1 / -1; height: 0.4em; border-radius: 1em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.goal-bar b { display: block; height: 100%; background: var(--gold); }
+.goal.ready .goal-num { color: var(--ok); }
+.goal.ready .goal-bar b { background: var(--ok); }
+
+.missions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5em; }
+.missions li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.6em 0.7em;
+  border-radius: 0.8em;
+  background: rgba(0, 0, 0, 0.3);
+}
+.missions .m-ico { color: var(--gold); }
+.missions .m-ico .ico { width: 1.4em; height: 1.4em; }
+.missions li.done .m-ico { color: var(--ok); }
+.missions .m-body { display: flex; flex-direction: column; gap: 0.25em; min-width: 0; }
+.missions .m-body b { font: 0.95em var(--display); }
+.missions .m-body small { font-size: 0.75em; color: var(--muted); }
+.missions .m-bar { display: block; height: 0.4em; border-radius: 1em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.missions .m-bar em { display: block; height: 100%; background: var(--gold); }
+.missions .m-reward { font: 0.85em var(--display); display: inline-flex; align-items: center; gap: 0.2em; white-space: nowrap; }
+.missions li.done { opacity: 0.7; }
+
 /* ----------------------------------------------------------------- Toasts */
 
 .toasts {
