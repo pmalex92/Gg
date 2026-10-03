@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, '..');
 const FILES = [
   'src/core/util.js', 'src/core/rng.js', 'src/core/events.js', 'src/config.js',
   'src/data/objects.js', 'src/data/upgrades.js', 'src/data/boosters.js', 'src/data/cosmetics.js',
-  'src/data/achievements.js', 'src/data/products.js', 'src/data/perks.js',
+  'src/data/achievements.js', 'src/data/products.js', 'src/data/perks.js', 'src/data/worlds.js',
   'src/systems/save.js', 'src/systems/economy.js', 'src/systems/achievements.js', 'src/systems/daily.js',
   'src/systems/leaderboard.js', 'src/systems/missions.js',
   'src/game/levelgen.js', 'src/game/claw.js', 'src/game/session.js', 'src/game/autopilot.js',
@@ -304,6 +304,32 @@ test('revive continues with extra time', () => {
   s.revive(15);
   ok(!s.ended);
   eq(s.timeLeft, 15);
+});
+
+console.log('\n[worlds + training]');
+test('a new world every 10 levels, cycling through 6', () => {
+  const { GR } = systems();
+  eq(GR.Worlds.forLevel(1).id, 'gold_hills');
+  eq(GR.Worlds.forLevel(10).id, 'gold_hills');
+  eq(GR.Worlds.forLevel(11).id, 'frozen_caves');
+  eq(GR.Worlds.forLevel(51).id, 'cosmic_rift');
+  eq(GR.Worlds.forLevel(61).id, 'gold_hills');
+  ok(GR.Worlds.isWorldStart(21) && !GR.Worlds.isWorldStart(22));
+});
+test("critters are drawn as the world's animal", () => {
+  const { GR } = systems();
+  const crits = GR.LevelGen.campaign(15, 'w').objects.filter((o) => o.kind === 'critter');
+  ok(crits.length > 0, 'level 15 has critters');
+  ok(crits.every((o) => o.species === 'penguin'));
+});
+test('training level: fixed layout, small target, no TNT/critters', () => {
+  const { GR } = systems();
+  const a = GR.LevelGen.training();
+  const b = GR.LevelGen.training();
+  eq(JSON.stringify(a.objects.map((o) => [o.type, o.x])), JSON.stringify(b.objects.map((o) => [o.type, o.x])));
+  eq(a.target, 300);
+  ok(!a.objects.some((o) => o.kind === 'tnt' || o.kind === 'critter'));
+  ok(a.fieldValue >= 900, 'plenty of gold: ' + a.fieldValue);
 });
 
 console.log('\n[perks]');

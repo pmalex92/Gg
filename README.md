@@ -45,6 +45,7 @@ the new files.
 | Run perks (pick 1 of 3 between levels) | `src/data/perks.js` |
 | Daily missions | `src/systems/missions.js` |
 | Nugget the mascot | `src/game/mascot.js` |
+| Worlds (scenery + critter every 10 levels) | `src/data/worlds.js` |
 | Achievements (data-driven) | `src/data/achievements.js`, `src/systems/achievements.js` |
 | Versioned local save with migrations | `src/systems/save.js` |
 | Leaderboard service (offline preview + REST adapter) | `src/systems/leaderboard.js` |
@@ -85,9 +86,16 @@ is why it can be simulated headlessly.
 
 ## Design notes
 
-- **First 30 seconds:** new players skip the menu and land in level 1 with a
-  single hint ("TAP TO LAUNCH THE CLAW") and an aim guide; the timer waits for
-  the first launch. First catch shows "GOOD CATCH!" and the hint disappears.
+- **First 30 seconds:** new players skip the menu and land in a short
+  **training level** with a single hint ("TAP TO LAUNCH THE CLAW"), a dotted aim
+  line and an easy $300 target; the timer waits for the first launch. When it
+  ends they go straight into Level 1 with "YOU GOT THE GIST! Now test your
+  skills" — from then on there is no aim line.
+- **Worlds:** the scenery changes automatically every 10 levels — Gold Hills,
+  Frozen Caves, Lava Depths, Jungle Ruins, Desert Tomb, Cosmic Rift — each with
+  its own skyline, ambient particles and critter (crabs, penguins, salamanders,
+  frogs, scorpions, space blobs), then the cycle repeats. Shop mine skins dress
+  the home screen and the Daily Challenge.
 - **Runs + checkpoints:** a run is a chain of levels; missing a target ends it.
   Coins are banked every level (never lost). Every 5th level becomes a
   checkpoint you can start from, so progress never feels wasted.
@@ -141,10 +149,10 @@ is applied via `Economy.grant()`. Add `?dev=1` to simulate purchases locally.
 ## Tools
 
 ```bash
-node tools/test-logic.js          # 34 headless unit tests (save, economy, streak, generator, rules)
+node tools/test-logic.js          # 38 headless unit tests (save, economy, streak, generator, rules)
 node tools/simulate.js 25 12      # balance report: bot pass-rates per level/upgrade tier
 npx http-server -c-1 . &          # then:
-node tools/qa.js                  # 50-step browser QA (needs Playwright)
+node tools/qa.js                  # 56-step browser QA (needs Playwright)
 npx eslint .                      # lint
 ```
 

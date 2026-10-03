@@ -16,7 +16,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const FILES = [
   'src/core/util.js', 'src/core/rng.js', 'src/core/events.js', 'src/config.js',
-  'src/data/objects.js', 'src/data/upgrades.js', 'src/data/boosters.js',
+  'src/data/objects.js', 'src/data/upgrades.js', 'src/data/boosters.js', 'src/data/cosmetics.js', 'src/data/worlds.js',
   'src/systems/economy.js', 'src/systems/daily.js',
   'src/game/levelgen.js', 'src/game/claw.js', 'src/game/session.js', 'src/game/autopilot.js',
 ];

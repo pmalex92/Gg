@@ -64,6 +64,19 @@
       crabGemChance: OBJ.crab.gemCarrierChance,
       targetCap: 0.62,
     };
+    if (mode === 'training') {
+      // Gentle practice field: chunky gold close to the surface, one gem,
+      // one rock to learn what "heavy" means, no TNT or critters.
+      r.weights = { small_gold: 4, large_gold: 3, diamond: 0.6 };
+      r.budget = 1300;
+      r.maxValuables = 9;
+      r.rocks = 1;
+      r.largeRockShare = 0;
+      r.tnt = 0;
+      r.depthReach = 0.62;
+      r.scaleLo = 1;
+      r.scaleHi = 1.15;
+    }
     if (mode === 'daily') {
       r.budget = 10500;
       r.maxValuables = 24;
@@ -116,6 +129,7 @@
       if (o.gem) o.value += def.gemBonus;
       o.speed = rng.range(42, 72);
       o.vx = rng.chance(0.5) ? o.speed : -o.speed;
+      o.species = rec.species || 'crab'; // drawn as the current world's animal
     }
     return o;
   }
@@ -221,6 +235,7 @@
     const mode = opts.mode || 'campaign';
     const rng = GR.RNG.fromString(opts.seed + '|' + n);
     const rec = recipe(n, mode, opts.modifier);
+    rec.species = opts.species;
     const field = new Field();
     const objects = [];
 
@@ -234,7 +249,7 @@
       value += o.value;
     }
     // Early levels: guarantee a couple of chunky nuggets for a satisfying start.
-    if (n <= 2 && mode === 'campaign') {
+    if ((n <= 2 && mode === 'campaign') || mode === 'training') {
       for (let i = 0; i < 2; i++) valuables.push(makeObject('large_gold', rng, rec));
     }
 
@@ -260,7 +275,7 @@
     }
     const extras = [];
     for (let i = 0; i < rec.tnt; i++) extras.push(makeObject('tnt', rng, rec));
-    const bags = rec.bags + (n >= 5 && rng.chance(0.5) ? 1 : 0);
+    const bags = mode === 'training' ? 1 : rec.bags + (n >= 5 && rng.chance(0.5) ? 1 : 0);
     for (let i = 0; i < bags; i++) extras.push(makeObject('mystery_bag', rng, rec));
 
     // 4. Place treasure, largest first, deeper for high-value items.
@@ -294,6 +309,7 @@
     );
     let target;
     if (mode === 'daily') target = round(fieldValue * rec.targetCap, 250);
+    else if (mode === 'training') target = 300;
     else target = Math.min(targetFor(n), round(fieldValue * rec.targetCap, 50));
 
     return {
@@ -314,7 +330,13 @@
     generate,
 
     campaign(level, runSeed) {
-      return generate({ level, seed: 'run-' + runSeed, mode: 'campaign' });
+      const world = GR.Worlds ? GR.Worlds.forLevel(level) : null;
+      return generate({ level, seed: 'run-' + runSeed, mode: 'campaign', species: world ? world.critter : 'crab' });
+    },
+
+    /** The one-off practice level before Level 1 (same layout every time). */
+    training() {
+      return generate({ level: 1, seed: 'training', mode: 'training' });
     },
 
     daily(dateKey) {

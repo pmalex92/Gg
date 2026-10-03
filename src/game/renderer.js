@@ -63,6 +63,14 @@
       }
     }
 
+    /** Use a theme object directly (campaign worlds). */
+    setScene(theme) {
+      if (theme && theme !== this.theme) {
+        this.theme = theme;
+        this.paintBackground();
+      }
+    }
+
     setClawSkin(id) {
       this.claw = GR.CLAW_SKINS_BY_ID[id] || GR.CLAW_SKINS_BY_ID.classic;
     }
@@ -108,7 +116,7 @@
           ctx.fillRect(rng.range(0, W), rng.range(top, G - 70), s, s);
         }
         ctx.globalAlpha = 1;
-        if (theme.id !== 'galaxy' && theme.id !== 'cyber') {
+        if (theme.moon !== false && theme.id !== 'galaxy' && theme.id !== 'cyber') {
           // crescent moon
           const mx = 612;
           const my = Math.max(top + 60, G - 105);
@@ -117,26 +125,12 @@
         }
       } else {
         const sun = ctx.createRadialGradient(540, G - 60, 10, 540, G - 60, 150);
-        sun.addColorStop(0, theme.id === 'lava' ? 'rgba(255,120,40,0.65)' : 'rgba(255,214,140,0.95)');
+        sun.addColorStop(0, /lava/.test(theme.id) ? 'rgba(255,120,40,0.65)' : 'rgba(255,214,140,0.95)');
         sun.addColorStop(1, 'rgba(255,160,80,0)');
         ctx.fillStyle = sun;
         ctx.fillRect(380, G - 220, 320, 220);
       }
-      // Hills (two layers)
-      for (let layer = 0; layer < 2; layer++) {
-        ctx.fillStyle = theme.hills;
-        ctx.globalAlpha = layer === 0 ? 0.55 : 1;
-        ctx.beginPath();
-        ctx.moveTo(0, G);
-        const base = layer === 0 ? 95 : 48;
-        for (let x = 0; x <= W + 40; x += 40) {
-          ctx.lineTo(x, G - base * rng.range(0.45, 1) - (layer === 0 ? 10 : 0));
-        }
-        ctx.lineTo(W, G);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
+      Renderer.paintSkyline(ctx, theme, rng, top);
 
       // Strata
       const depth = bottom + 20 - G;
@@ -202,10 +196,183 @@
       ctx.fillRect(0, 1060, W, bottom - 1060 + 40);
     }
 
+    /** Distant silhouettes that tell each world apart at a glance. */
+    static paintSkyline(ctx, theme, rng, top) {
+      const hills = (base, alpha, step, color) => {
+        ctx.fillStyle = color || theme.hills;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(0, G);
+        for (let x = 0; x <= W + step; x += step) ctx.lineTo(x, G - base * rng.range(0.45, 1));
+        ctx.lineTo(W, G);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      };
+      const tri = (x, w, h, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2, G);
+        ctx.lineTo(x, G - h);
+        ctx.lineTo(x + w / 2, G);
+        ctx.closePath();
+        ctx.fill();
+      };
+      switch (theme.skyline) {
+        case 'peaks': {
+          // jagged snowy mountains
+          [[90, 220, 150], [250, 260, 190], [450, 240, 165], [640, 230, 140]].forEach(([x, w, h], i) => {
+            ctx.globalAlpha = i % 2 ? 0.75 : 1;
+            tri(x, w, h, theme.hills);
+            ctx.fillStyle = '#e8f6ff';
+            ctx.beginPath();
+            ctx.moveTo(x, G - h);
+            ctx.lineTo(x - w * 0.14, G - h * 0.72);
+            ctx.lineTo(x - w * 0.05, G - h * 0.77);
+            ctx.lineTo(x + w * 0.03, G - h * 0.7);
+            ctx.lineTo(x + w * 0.14, G - h * 0.72);
+            ctx.closePath();
+            ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+          hills(40, 1, 40);
+          break;
+        }
+        case 'volcano': {
+          hills(70, 0.55, 40);
+          const vx = 520;
+          ctx.fillStyle = theme.hills;
+          ctx.beginPath();
+          ctx.moveTo(vx - 170, G);
+          ctx.lineTo(vx - 34, G - 170);
+          ctx.lineTo(vx + 34, G - 170);
+          ctx.lineTo(vx + 170, G);
+          ctx.closePath();
+          ctx.fill();
+          const glow = ctx.createRadialGradient(vx, G - 172, 4, vx, G - 172, 90);
+          glow.addColorStop(0, 'rgba(255,140,40,0.8)');
+          glow.addColorStop(1, 'rgba(255,90,20,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(vx - 90, G - 262, 180, 180);
+          ctx.strokeStyle = '#ff6a1f';
+          ctx.lineWidth = 5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(vx - 6, G - 168);
+          ctx.quadraticCurveTo(vx - 30, G - 110, vx - 18, G - 60);
+          ctx.stroke();
+          hills(36, 1, 30);
+          break;
+        }
+        case 'jungle': {
+          hills(80, 0.5, 40);
+          // stone ruin pillars + temple steps
+          ctx.fillStyle = '#16362b';
+          [[120, 70], [160, 92], [560, 84]].forEach(([x, h]) => ctx.fillRect(x, G - h, 18, h));
+          ctx.fillRect(108, G - 98, 76, 10);
+          // stepped temple, narrower towards the top
+          for (let i = 0; i < 4; i++) {
+            const w = 170 - i * 38;
+            ctx.fillRect(470 - w / 2, G - 22 * (i + 1), w, 22);
+          }
+          // canopy trees
+          ctx.fillStyle = '#0c241c';
+          for (let x = -20; x < W + 40; x += 70) {
+            const h = rng.range(60, 110);
+            ctx.fillRect(x + 30, G - h * 0.6, 8, h * 0.6);
+            ctx.beginPath();
+            ctx.ellipse(x + 34, G - h * 0.65, rng.range(28, 40), rng.range(18, 26), 0, 0, TAU);
+            ctx.fill();
+          }
+          hills(28, 1, 30);
+          break;
+        }
+        case 'pyramids': {
+          // dunes and two pyramids
+          tri(470, 300, 160, '#7a3f3a');
+          ctx.fillStyle = 'rgba(0,0,0,0.18)';
+          ctx.beginPath();
+          ctx.moveTo(470, G - 160);
+          ctx.lineTo(620, G);
+          ctx.lineTo(470, G);
+          ctx.closePath();
+          ctx.fill();
+          tri(250, 190, 100, '#6a3534');
+          ctx.fillStyle = theme.hills;
+          ctx.beginPath();
+          ctx.moveTo(0, G);
+          for (let x = 0; x <= W; x += 20) ctx.lineTo(x, G - 26 - Math.sin(x * 0.012) * 14);
+          ctx.lineTo(W, G);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'planets': {
+          const px = 560;
+          const py = Math.max(top + 90, G - 150);
+          GR.Sprites.circle(ctx, px, py, 46, '#7b5cd6');
+          GR.Sprites.circle(ctx, px - 12, py - 12, 30, '#9b80ec');
+          ctx.strokeStyle = 'rgba(230,210,255,0.8)';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.ellipse(px, py, 82, 16, -0.3, 0, TAU);
+          ctx.stroke();
+          GR.Sprites.circle(ctx, 140, Math.max(top + 70, G - 170), 14, '#ff9fd0');
+          hills(60, 0.55, 40);
+          hills(32, 1, 30);
+          break;
+        }
+        default:
+          hills(105, 0.55, 40);
+          hills(48, 1, 40);
+      }
+      ctx.globalAlpha = 1;
+    }
+
     static paintDecor(ctx, theme, rng, bottom) {
       ctx.save();
       const accent = theme.accent;
       switch (theme.decor) {
+        case 'icicles':
+          // icicles hanging under the frozen surface + faint ice crystals
+          ctx.fillStyle = 'rgba(220,245,255,0.85)';
+          for (let x = 6; x < W; x += rng.range(14, 30)) {
+            const h = rng.range(8, 26);
+            ctx.beginPath();
+            ctx.moveTo(x - 4, G + 12);
+            ctx.lineTo(x, G + 12 + h);
+            ctx.lineTo(x + 4, G + 12);
+            ctx.fill();
+          }
+          for (let i = 0; i < 12; i++) {
+            ctx.globalAlpha = rng.range(0.12, 0.22);
+            GR.Sprites.star(ctx, rng.range(20, W - 20), rng.range(G + 90, bottom - 30), rng.range(6, 12), theme.accent);
+          }
+          break;
+        case 'vines':
+          ctx.strokeStyle = 'rgba(70,150,80,0.55)';
+          ctx.lineCap = 'round';
+          for (let i = 0; i < 14; i++) {
+            let x = rng.range(10, W - 10);
+            let y = G + 12;
+            ctx.lineWidth = rng.range(2, 3.5);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            const len = rng.int(4, 8);
+            for (let k = 0; k < len; k++) {
+              const nx = x + rng.range(-12, 12);
+              const ny = y + rng.range(12, 22);
+              ctx.quadraticCurveTo(x + rng.range(-10, 10), (y + ny) / 2, nx, ny);
+              x = nx;
+              y = ny;
+            }
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(90,180,90,0.5)';
+            ctx.beginPath();
+            ctx.ellipse(x, y, 5, 3, rng.range(0, 3), 0, TAU);
+            ctx.fill();
+          }
+          break;
         case 'roots':
           ctx.strokeStyle = 'rgba(30,18,8,0.55)';
           ctx.lineCap = 'round';
@@ -529,7 +696,7 @@
         if (o.kind === 'critter') {
           ctx.save();
           ctx.translate(o.x, o.y);
-          GR.Sprites.painters.crab(ctx, o, t);
+          GR.Sprites.critter(ctx, o, t);
           ctx.restore();
         } else if (o.rolling) {
           // Rolling boulder: spins with distance travelled (the only rotated blit).
@@ -566,7 +733,7 @@
       ctx.save();
       ctx.translate(o.x, o.y);
       ctx.rotate(-claw.angle * 0.8 + sway);
-      if (o.kind === 'critter') GR.Sprites.painters.crab(ctx, o, this.time);
+      if (o.kind === 'critter') GR.Sprites.critter(ctx, o, this.time);
       else {
         const spr = GR.Sprites.get(o);
         ctx.drawImage(spr.canvas, -spr.size / 2, -spr.size / 2, spr.size, spr.size);
