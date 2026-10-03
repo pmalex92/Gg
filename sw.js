@@ -3,7 +3,7 @@
  * cache-first. Bump CACHE when shipping a new version so clients update.
  * (Only active over http/https — file:// pages skip registration.)
  */
-const CACHE = 'goldrush-v1.2.0';
+const CACHE = 'goldrush-v1.2.1';
 const ASSETS = [
   './',
   'index.html',
